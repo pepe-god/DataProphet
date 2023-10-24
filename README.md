@@ -5,4 +5,4 @@ sql data puller TR data
 
 
 
-%99 GPT %1 insan eseri
+%99 AI pilto %1 insan eseri
