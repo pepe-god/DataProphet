@@ -57,7 +57,7 @@ query += " AND".join(params) + ";"
 cursor.execute(query)
 
 # Sorgu sonuçlarını bir metin dosyasına yazma
-with open("sonuclar.txt", "w") as dosya:
+with open("data.txt", "w") as dosya:
     for row in cursor.fetchall():
         satir = "\t".join(str(value) for value in row)  # Sütunları sekmeyle ayırarak birleştirme
         dosya.write(satir + "\n")  # Her satırı dosyaya yazma
