@@ -6,3 +6,5 @@ sql data puller TR data
 
 
 %99 AI pilto %1 insan eseri
+
+windowsda çalışmıyor galiba :/
