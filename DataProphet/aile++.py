@@ -1,4 +1,4 @@
-﻿import mysql.connector
+import mysql.connector
 
 cnx = mysql.connector.connect(
     host="localhost",
@@ -9,7 +9,7 @@ cnx = mysql.connector.connect(
 
 cursor = cnx.cursor()
 
-tc_no = "12345678901"  # kişi tc si buraya
+tc_no = "1122334455"  # kişi tc si buraya
 query = f"SELECT * FROM `101m` WHERE TC = '{tc_no}'"
 cursor.execute(query)
 result = cursor.fetchone()
@@ -50,27 +50,6 @@ if result:
         else:
             file.write("\nAnne bilgisi bulunamadı.\n")
 
-        query = f"SELECT * FROM `101m` WHERE ANNETC = '{anne_tc}' AND TC != '{tc_no}'"
-        cursor.execute(query)
-        anneden_kardes_result = cursor.fetchall()
-
-        if anneden_kardes_result:
-            file.write("\nAnne Tarafından Kardeş bilgileri:\n")
-            for kardes in anneden_kardes_result:
-                file.write(f"TC: {kardes[1]}\t")
-                file.write(f"Adı: {kardes[2]}\t")
-                file.write(f"Soyadı: {kardes[3]}\t")
-                file.write(f"Doğum Tarihi: {kardes[4]}\t")
-                file.write(f"Nufus İli: {kardes[5]}\t")
-                file.write(f"Nufus İlçesi: {kardes[6]}\t")
-                file.write(f"Anne Adı: {kardes[7]}\t")
-                file.write(f"Anne TC: {kardes[8]}\t")
-                file.write(f"Baba Adı: {kardes[9]}\t")
-                file.write(f"Baba TC: {kardes[10]}\t")
-                file.write(f"Uyruk: {kardes[11]}\n")
-        else:
-            file.write("\nAnne Tarafından Kardeş bilgisi bulunamadı.\n")
-
         baba_tc = result[10] 
         query = f"SELECT * FROM `101m` WHERE TC = '{baba_tc}'"
         cursor.execute(query)
@@ -92,27 +71,50 @@ if result:
         else:
             file.write("\nBaba bilgisi bulunamadı.\n")
 
-        query = f"SELECT * FROM `101m` WHERE BABATC = '{baba_tc}' AND TC != '{tc_no}'"
+
+        query = f"SELECT * FROM `101m` WHERE ANNETC = '{result[1]}' OR BABATC = '{result[1]}'"
         cursor.execute(query)
-        babadan_kardes_result = cursor.fetchall()
+        cocuklari = cursor.fetchall()
 
-        if babadan_kardes_result:
-            file.write("\nBaba Tarafından Kardeş bilgileri:\n")
-            for kardes in babadan_kardes_result:
-                file.write(f"TC: {kardes[1]}\t")
-                file.write(f"Adı: {kardes[2]}\t")
-                file.write(f"Soyadı: {kardes[3]}\t")
-                file.write(f"Doğum Tarihi: {kardes[4]}\t")
-                file.write(f"Nufus İli: {kardes[5]}\t")
-                file.write(f"Nufus İlçesi: {kardes[6]}\t")
-                file.write(f"Anne Adı: {kardes[7]}\t")
-                file.write(f"Anne TC: {kardes[8]}\t")
-                file.write(f"Baba Adı: {kardes[9]}\t")
-                file.write(f"Baba TC: {kardes[10]}\t")
-                file.write(f"Uyruk: {kardes[11]}\n")
+        if cocuklari:
+            file.write("\nÇocuklarının bilgileri:\n")
+            for k in cocuklari:
+                file.write(f"{k}\n")
         else:
-            file.write("\nBaba Tarafından Kardeş bilgisi bulunamadı.\n")
+            file.write("Çocuklarının bilgileri bulunamadı.\n")
 
+        query = f"SELECT * FROM `101m` WHERE (ANNETC = '{anne_tc}' OR BABATC = '{baba_tc}') AND TC != '{tc_no}'"
+        cursor.execute(query)
+        kardes = cursor.fetchall()
+
+        if kardes:
+            file.write("\nKardeş bilgileri:\n")
+            for k in kardes:
+                file.write(f"{k}\n")
+        else:
+            file.write("Kardeş bilgisi bulunamadı.\n")
+
+        query = f"SELECT * FROM `101m` WHERE (ANNETC = '{anne_result[8]}' OR BABATC = '{anne_result[10]}') AND TC != '{anne_result[1]}'"
+        cursor.execute(query)
+        dayı_teyze = cursor.fetchall()
+
+        if dayı_teyze:
+            file.write("\nDayı Teyze bilgileri:\n")
+            for k in dayı_teyze:
+                file.write(f"{k}\n")
+        else:
+            file.write("Dayı Teyze bilgisi bulunamadı.\n")
+
+        query = f"SELECT * FROM `101m` WHERE (ANNETC = '{baba_result[8]}' OR BABATC = '{baba_result[10]}') AND TC != '{baba_result[1]}'"
+        cursor.execute(query)
+        amca_hala = cursor.fetchall()
+
+        if amca_hala:
+            file.write("\nAmca Hala bilgileri:\n")
+            for k in amca_hala:
+                file.write(f"{k}\n")
+        else:       
+            file.write("Amca Hala bilgisi bulunamadı.\n")
 else:
     print("Bulunamadı")
 cnx.close()
