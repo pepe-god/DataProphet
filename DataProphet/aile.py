@@ -1,83 +1,60 @@
-from sqlalchemy import create_engine, MetaData, Table, select
+import mysql.connector
 
-def cocuklari_ve_kardesleri_bul(tc, dosya, connection):
-    metadata = MetaData(bind=connection)
+def write_person_info(file, person):
+    file.write(f"TC: {person[1]}\tAdı: {person[2]}\tSoyadı: {person[3]}\tDoğum Tarihi: {person[4]}\tNufus İli: {person[5]}\tNufus İlçesi: {person[6]}\tAnne Adı: {person[7]}\tAnne TC: {person[8]}\tBaba Adı: {person[9]}\tBaba TC: {person[10]}\tUyruk: {person[11]}\n")
 
-    # Tabloya erişim için Table objesini oluşturma
-    table = Table('101m', metadata, autoload=True)
+def get_person(cursor, tc_no):
+    query = f"SELECT * FROM `101m` WHERE TC = '{tc_no}'"
+    cursor.execute(query)
+    return cursor.fetchone()
 
-    query = select([table]).where((table.c.ANNETC == tc) | (table.c.BABATC == tc))
-    cocuklar = connection.execute(query).fetchall()
+def get_siblings(cursor, parent_tc, relation_type):
+    query = f"SELECT * FROM `101m` WHERE {relation_type} = '{parent_tc}'"
+    cursor.execute(query)
+    return cursor.fetchall()
 
-    dosya.write(f"TC: {tc}\n")
-    dosya.write("Çocuklar:\n")
-    for cocuk in cocuklar:
-        dosya.write(str(cocuk) + "\n")
+def write_family_info(cursor, tc_no, output_file):
+    person = get_person(cursor, tc_no)
+    if person:
+        with open(output_file, "w", encoding="utf-8") as file:
+            file.write("Bulunan kayıt:\n")
+            write_person_info(file, person)
 
-    if not cocuklar:
-        dosya.write("Kişinin çocukları bulunamadı.\n")
+            # Anne bilgileri
+            mother = get_person(cursor, person[8])
+            if mother:
+                file.write("\nAnne bilgileri:\n")
+                write_person_info(file, mother)
 
-    query = select([table.c.ANNETC, table.c.BABATC]).where(table.c.TC == tc)
-    parametreler = connection.execute(query).fetchone()
-    if not parametreler:
-        dosya.write("Bu TC numarasına ait kişi bulunamadı.\n")
-        return
+                # Anne tarafından kardeşler
+                siblings = get_siblings(cursor, person[8], "ANNETC")
+                if siblings:
+                    file.write("\nAnne Tarafından Kardeş bilgileri:\n")
+                    for sibling in siblings:
+                        write_person_info(file, sibling)
 
-    anne_tc, baba_tc = parametreler
+            # Baba bilgileri
+            father = get_person(cursor, person[10])
+            if father:
+                file.write("\nBaba bilgileri:\n")
+                write_person_info(file, father)
 
-    query = select([table]).where(((table.c.ANNETC == anne_tc) | (table.c.BABATC == baba_tc)) & (table.c.TC != tc))
-    kardesler = connection.execute(query).fetchall()
+                # Baba tarafından kardeşler
+                siblings = get_siblings(cursor, person[10], "BABATC")
+                if siblings:
+                    file.write("\nBaba Tarafından Kardeş bilgileri:\n")
+                    for sibling in siblings:
+                        write_person_info(file, sibling)
 
-    dosya.write("Kardeşler:\n")
-    for kardes in kardesler:
-        dosya.write(str(kardes) + "\n")
+    else:
+        print("Bulunamadı")
 
-    if not kardesler:
-        dosya.write("Kardeş bulunamadı.\n")
+# MySQL bağlantısı oluştur
+cnx = mysql.connector.connect(host="localhost", user="root", password="", database="101m")
+cursor = cnx.cursor()
 
-    query = select([table]).where(table.c.TC == anne_tc)
-    anne = connection.execute(query).fetchone()
+# Aile bilgilerini yazdır
+write_family_info(cursor, "12345678912", "kisi_bilgileri.txt")
 
-    dosya.write("Anne Bilgileri:\n")
-    dosya.write(str(anne) + "\n")
-
-    if not anne:
-        dosya.write("Anne bilgileri bulunamadı.\n")
-
-    query = select([table]).where(table.c.TC == baba_tc)
-    baba = connection.execute(query).fetchone()
-
-    dosya.write("Baba Bilgileri:\n")
-    dosya.write(str(baba) + "\n")
-
-    if not baba:
-        dosya.write("Baba bilgileri bulunamadı.\n")
-
-    query = select([table]).where(table.c.TC == tc)
-    kisi = connection.execute(query).fetchone()
-
-    dosya.write("Kişi Bilgileri:\n")
-    dosya.write(str(kisi) + "\n")
-
-    if not kisi:
-        dosya.write("Kişi bilgileri bulunamadı.\n")
-
-    dosya.write("\n")
-
-def main():
-    # Veritabanı bağlantısı oluşturma
-    engine = create_engine('mysql+pymysql://root:@localhost/101m')
-    connection = engine.connect()
-
-    tc1 = input("TC 1 girin: ")
-    tc2 = input("TC 2 girin: ")
-
-    with open("aile.txt", "w") as dosya:
-        cocuklari_ve_kardesleri_bul(tc1, dosya, connection)
-        cocuklari_ve_kardesleri_bul(tc2, dosya, connection)
-
-    # Bağlantıyı kapatma
-    connection.close()
-
-if __name__ == "__main__":
-    main()
+# Bağlantıyı kapat
+cnx.close()
