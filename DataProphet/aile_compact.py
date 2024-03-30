@@ -82,7 +82,7 @@ def write_family_info(cursor, tc_no, output_file):
                 cursor.execute(sorgu_amca_hala)
                 amca_hala_sonuclari = cursor.fetchall()
                 if amca_hala_sonuclari:
-                    file.write("\nDayı ve Teyze bilgileri:\n")
+                    file.write("\nAmca ve Hala bilgileri:\n")
                     for amca_hala in amca_hala_sonuclari:
                         kisi_bilgisini_yaz(file, amca_hala)
         else:
