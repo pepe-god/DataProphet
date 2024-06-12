@@ -10,13 +10,15 @@ def kisi_bilgisini_al(cursor, tc_no):
     cursor.execute(sorgu)
     return cursor.fetchone()
 
-# Aile bilgilerini dosyaya yazma fonksiyonu
+# Aile bilgilerini dosyaya yazma ve sorgulanan kişinin bilgilerini konsola yazdırma fonksiyonu
 def write_family_info(cursor, tc_no, output_file):
     with open(output_file, "w", encoding="utf-8") as file:
         kisi = kisi_bilgisini_al(cursor, tc_no)
         if kisi:
             file.write("Bulunan kayıt:\n")
             kisi_bilgisini_yaz(file, kisi)
+            ad_soyad = kisi[2] + " " + kisi[3]
+            print(f"{ad_soyad} sorgulandı.")
 
             # Anne bilgileri
             anne_tc = kisi[8]
@@ -91,7 +93,7 @@ cnx = mysql.connector.connect(host="localhost", user="root", password="", databa
 cursor = cnx.cursor()
 
 # Aile bilgilerini dosyaya yaz
-write_family_info(cursor, "11223344", "sorgu.txt")
+write_family_info(cursor, "(11223344bu kısma tc gelicek", "sorgu.txt")
 
 # Bağlantıyı kapat
 cnx.close()
