@@ -93,7 +93,7 @@ cnx = mysql.connector.connect(host="localhost", user="root", password="", databa
 cursor = cnx.cursor()
 
 # Aile bilgilerini dosyaya yaz
-write_family_info(cursor, "(11223344bu kısma tc gelicek", "sorgu.txt")
+write_family_info(cursor, ("bu kısma tc gelicek", "sorgu.txt")
 
 # Bağlantıyı kapat
 cnx.close()
