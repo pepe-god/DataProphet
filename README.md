@@ -7,4 +7,6 @@ Python ile SQL'den Türk vatandaşlarının kimlik bilgilerini çıkarmak için 
 
 mysql.connector required // bu kütüpaneyi indirin
 
+searcher ile kişiyi tespit ettikten sonra hedef kişiyi sorgu veya daha complex olan sulale betiğiyle soy bilgilerine ulaşın.
+
 **İşinize yaradıysa yıldızlamayı unutmayın.**
