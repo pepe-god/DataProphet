@@ -112,6 +112,8 @@ if main_person:
 
         # Dayı/Teyze ve Amca/Hala TC'lerini bir listeye topla
         dayı_teyze_amca_hala_tc_list = []
+        dayı_teyze_result = []
+        amca_hala_result = []
         if anne_result:
             dayı_teyze_result = fetch_siblings(cursor, anne_result[8], anne_result[10], anne_result[1])
             if dayı_teyze_result:
@@ -139,12 +141,12 @@ if main_person:
 
         # Summary
         summary_data = {
-            "Amca/Hala Sayısı": len(amca_hala_result) if amca_hala_result else 0,
-            "Dayı/Teyze Sayısı": len(dayı_teyze_result) if dayı_teyze_result else 0,
             "Kuzen Sayısı": len(kuzenleri_result) if kuzenleri_result else 0,
             "Kardeş Sayısı": len(kardesleri_result) if kardesleri_result else 0,
             "Yeğen Sayısı": len(yegenleri_result) if yegenleri_result else 0,
-            "Çocuk Sayısı": len(cocuklari_result) if cocuklari_result else 0
+            "Çocuk Sayısı": len(cocuklari_result) if cocuklari_result else 0,
+            "Amca/Hala Sayısı": len(amca_hala_result) if amca_hala_result else 0,
+            "Dayı/Teyze Sayısı": len(dayı_teyze_result) if dayı_teyze_result else 0,
         }
 
         writer.writerow([])
