@@ -163,7 +163,7 @@ def process_family_tree(cursor, tc_no, writer, prefix=""):
         summary_data = {
             "Kuzen Sayısı": len(kuzenleri_result) if kuzenleri_result else 0,
             "Kardeş Sayısı": len(kardesleri_result) if kardesleri_result else 0,
-            "Yeğen Sayısı": len(yegenleri_result) if 'yegenleri_result' in locals() else 0,
+            "Yeğen Sayısı": sum(len(get_children_by_parent_tc(cursor, kardes[1])) for kardes in kardesleri_result) if kardesleri_result else 0,
             "Çocuk Sayısı": len(cocuklari_result) if cocuklari_result else 0,
             "Amca/Hala Sayısı": len(amca_hala_result) if amca_hala_result else 0,
             "Dayı/Teyze Sayısı": len(dayı_teyze_result) if dayı_teyze_result else 0,
@@ -208,7 +208,7 @@ def main():
 
             # Ana kişinin kendi sülalesi
             writer.writerow([])
-            writer.writerow([f""])
+            writer.writerow([f"Kendi Sülalesi"])
             process_family_tree(cursor, tc_no, writer, f"")
 
             # Ana kişinin annesinin sülalesi
@@ -216,14 +216,14 @@ def main():
             if anne_tc:
                 writer.writerow([])
                 writer.writerow([f"Annesinin Sülalesi"])
-                process_family_tree(cursor, anne_tc, writer, f"Annesinin ")
+                process_family_tree(cursor, anne_tc, writer, f"")
 
             # Ana kişinin babasının sülalesi
             baba_tc = main_person[10]
             if baba_tc:
                 writer.writerow([])
                 writer.writerow([f"Babasının Sülalesi"])
-                process_family_tree(cursor, baba_tc, writer, f"Babasının ")
+                process_family_tree(cursor, baba_tc, writer, f"")
 
     else:
         logger.info("Bulunamadı")
