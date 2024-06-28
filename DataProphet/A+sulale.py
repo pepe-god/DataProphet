@@ -99,11 +99,31 @@ if main_person:
         if anne_result:
             write_person_info(writer, anne_result, "Anne")
 
+            # Anne'nin ebeveynleri (Büyükanne ve Büyükbaba)
+            anne_anne_tc = anne_result[8]
+            anne_baba_tc = anne_result[10]
+            anne_anne_result = get_family_member_by_tc(cursor, anne_anne_tc)
+            anne_baba_result = get_family_member_by_tc(cursor, anne_baba_tc)
+            if anne_anne_result:
+                write_person_info(writer, anne_anne_result, "Büyükanne (Anne'nin Anne)")
+            if anne_baba_result:
+                write_person_info(writer, anne_baba_result, "Büyükbaba (Anne'nin Baba)")
+
         # Baba bilgileri
         baba_tc = main_person[10]
         baba_result = get_family_member_by_tc(cursor, baba_tc)
         if baba_result:
             write_person_info(writer, baba_result, "Baba")
+
+            # Baba'nın ebeveynleri (Büyükanne ve Büyükbaba)
+            baba_anne_tc = baba_result[8]
+            baba_baba_tc = baba_result[10]
+            baba_anne_result = get_family_member_by_tc(cursor, baba_anne_tc)
+            baba_baba_result = get_family_member_by_tc(cursor, baba_baba_tc)
+            if baba_anne_result:
+                write_person_info(writer, baba_anne_result, "Büyükanne (Baba'nın Anne)")
+            if baba_baba_result:
+                write_person_info(writer, baba_baba_result, "Büyükbaba (Baba'nın Baba)")
 
         # Çocukları
         cocuklari_result = get_children_by_parent_tc(cursor, main_person[1])
