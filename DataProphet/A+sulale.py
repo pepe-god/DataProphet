@@ -188,7 +188,7 @@ if main_person:
         summary_data = {
             "Kuzen Sayısı": len(kuzenleri_result) if kuzenleri_result else 0,
             "Kardeş Sayısı": len(kardesleri_result) if kardesleri_result else 0,
-            "Yeğen Sayısı": len(yegenleri_result) if yegenleri_result else 0,
+            "Yeğen Sayısı": len(yegenleri_result) if 'yegenleri_result' in locals() else 0,
             "Çocuk Sayısı": len(cocuklari_result) if cocuklari_result else 0,
             "Amca/Hala Sayısı": len(amca_hala_result) if amca_hala_result else 0,
             "Dayı/Teyze Sayısı": len(dayı_teyze_result) if dayı_teyze_result else 0,
