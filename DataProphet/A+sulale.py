@@ -1,7 +1,11 @@
 import mysql.connector
 import csv
 import os
+import logging
 from mysql.connector import Error
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def write_person_info(writer, person, category):
     """Kişi bilgilerini CSV dosyasına yazar."""
@@ -16,9 +20,10 @@ def connect_to_database():
             password="",
             database="101m"
         )
+        logger.info("Veritabanına başarıyla bağlandı.")
         return cnx
     except Error as e:
-        print(f"Veritabanına bağlanırken hata oluştu: {e}")
+        logger.error(f"Veritabanına bağlanırken hata oluştu: {e}")
         return None
 
 def execute_query(cursor, query, params=None):
@@ -27,26 +32,26 @@ def execute_query(cursor, query, params=None):
         cursor.execute(query, params)
         return cursor.fetchall()
     except Error as e:
-        print(f"Sorgu çalıştırılırken hata oluştu: {e}")
+        logger.error(f"Sorgu çalıştırılırken hata oluştu: {e}")
         return None
 
-def fetch_family_member(cursor, tc_no):
+def get_family_member_by_tc(cursor, tc_no):
     """Belirtilen TC kimlik numarasına sahip aile üyesini getirir."""
     query = "SELECT * FROM `101m` WHERE TC = %s"
     result = execute_query(cursor, query, (tc_no,))
     return result[0] if result else None
 
-def fetch_children(cursor, parent_tc):
+def get_children_by_parent_tc(cursor, parent_tc):
     """Belirtilen ebeveyn TC kimlik numarasına sahip çocukları getirir."""
     query = "SELECT * FROM `101m` WHERE ANNETC = %s OR BABATC = %s"
     return execute_query(cursor, query, (parent_tc, parent_tc))
 
-def fetch_siblings(cursor, anne_tc, baba_tc, tc_no):
+def get_siblings_by_parent_tc(cursor, anne_tc, baba_tc, tc_no):
     """Belirtilen anne ve baba TC kimlik numaralarına sahip kardeşleri getirir."""
     query = "SELECT * FROM `101m` WHERE (ANNETC = %s OR BABATC = %s) AND TC != %s"
     return execute_query(cursor, query, (anne_tc, baba_tc, tc_no))
 
-def fetch_cousins(cursor, parent_tc_list):
+def get_cousins_by_parent_tc_list(cursor, parent_tc_list):
     """Belirtilen ebeveyn TC kimlik numaralarına sahip kuzenleri getirir."""
     if parent_tc_list:
         query = "SELECT * FROM `101m` WHERE ANNETC IN (%s) OR BABATC IN (%s)" % (','.join(['%s'] * len(parent_tc_list)), ','.join(['%s'] * len(parent_tc_list)))
@@ -68,7 +73,7 @@ if not cnx:
 cursor = cnx.cursor()
 
 tc_no = input("TC Kimlik Numarasını Girin: ")  # kişi tc si buraya
-main_person = fetch_family_member(cursor, tc_no)
+main_person = get_family_member_by_tc(cursor, tc_no)
 
 if main_person:
     main_person_name = f"{main_person[2]}_{main_person[3]}"
@@ -90,42 +95,42 @@ if main_person:
 
         # Anne bilgileri
         anne_tc = main_person[8]
-        anne_result = fetch_family_member(cursor, anne_tc)
+        anne_result = get_family_member_by_tc(cursor, anne_tc)
         if anne_result:
             write_person_info(writer, anne_result, "Anne")
 
         # Baba bilgileri
         baba_tc = main_person[10]
-        baba_result = fetch_family_member(cursor, baba_tc)
+        baba_result = get_family_member_by_tc(cursor, baba_tc)
         if baba_result:
             write_person_info(writer, baba_result, "Baba")
 
         # Çocukları
-        cocuklari_result = fetch_children(cursor, main_person[1])
+        cocuklari_result = get_children_by_parent_tc(cursor, main_person[1])
         if cocuklari_result:
             for cocuk in cocuklari_result:
                 write_person_info(writer, cocuk, "-Çocuk")
 
                 # Torunları
-                torunlari_result = fetch_children(cursor, cocuk[1])
+                torunlari_result = get_children_by_parent_tc(cursor, cocuk[1])
                 if torunlari_result:
                     for torun in torunlari_result:
                         write_person_info(writer, torun, f"{cocuk[2]} {cocuk[3]}'in Çocuğu")
 
         # Kardeşleri
-        kardesleri_result = fetch_siblings(cursor, anne_tc, baba_tc, tc_no)
+        kardesleri_result = get_siblings_by_parent_tc(cursor, anne_tc, baba_tc, tc_no)
         if kardesleri_result:
             for kardes in kardesleri_result:
                 write_person_info(writer, kardes, "--Kardeşi")
 
                 # Yeğenleri
-                yegenleri_result = fetch_children(cursor, kardes[1])
+                yegenleri_result = get_children_by_parent_tc(cursor, kardes[1])
                 if yegenleri_result:
                     for yegen in yegenleri_result:
                         write_person_info(writer, yegen, "Yeğeni (Kardeşinin Çocuğu)")
 
                         # Yeğenin Çocuğu
-                        yegenin_cocugu_result = fetch_children(cursor, yegen[1])
+                        yegenin_cocugu_result = get_children_by_parent_tc(cursor, yegen[1])
                         if yegenin_cocugu_result:
                             for yegenin_cocugu in yegenin_cocugu_result:
                                 write_person_info(writer, yegenin_cocugu, f"{yegen[2]} {yegen[3]}'in Çocuğu")
@@ -135,26 +140,26 @@ if main_person:
         dayı_teyze_result = []
         amca_hala_result = []
         if anne_result:
-            dayı_teyze_result = fetch_siblings(cursor, anne_result[8], anne_result[10], anne_result[1])
+            dayı_teyze_result = get_siblings_by_parent_tc(cursor, anne_result[8], anne_result[10], anne_result[1])
             if dayı_teyze_result:
                 dayı_teyze_amca_hala_tc_list.extend([dayı_teyze[1] for dayı_teyze in dayı_teyze_result])
                 for dayı_teyze in dayı_teyze_result:
                     write_person_info(writer, dayı_teyze, "---Dayı/Teyze")
         if baba_result:
-            amca_hala_result = fetch_siblings(cursor, baba_result[8], baba_result[10], baba_result[1])
+            amca_hala_result = get_siblings_by_parent_tc(cursor, baba_result[8], baba_result[10], baba_result[1])
             if amca_hala_result:
                 dayı_teyze_amca_hala_tc_list.extend([amca_hala[1] for amca_hala in amca_hala_result])
                 for amca_hala in amca_hala_result:
                     write_person_info(writer, amca_hala, "---Amca/Hala")
 
         # Tüm kuzenleri tek bir sorguda al
-        kuzenleri_result = fetch_cousins(cursor, dayı_teyze_amca_hala_tc_list)
+        kuzenleri_result = get_cousins_by_parent_tc_list(cursor, dayı_teyze_amca_hala_tc_list)
         if kuzenleri_result:
             for kuzen in kuzenleri_result:
                 write_person_info(writer, kuzen, "Kuzen")
 
                 # Kuzenin Çocukları
-                kuzen_cocuklari_result = fetch_children(cursor, kuzen[1])
+                kuzen_cocuklari_result = get_children_by_parent_tc(cursor, kuzen[1])
                 if kuzen_cocuklari_result:
                     for kuzen_cocugu in kuzen_cocuklari_result:
                         write_person_info(writer, kuzen_cocugu, f"{kuzen[2]} {kuzen[3]}'in Çocuğu")
@@ -172,6 +177,6 @@ if main_person:
         write_summary(writer, summary_data)
 
 else:
-    print("Bulunamadı")
+    logger.info("Bulunamadı")
 
 cnx.close()
