@@ -11,6 +11,9 @@ logger = logging.getLogger(__name__)
 def read_config():
     config = configparser.ConfigParser()
     config.read('config.ini')
+    if 'DATABASE' not in config:
+        logger.error("Config dosyasında 'DATABASE' bölümü bulunamadı.")
+        return None
     return config['DATABASE']
 
 def validate_tc(tc_no):
@@ -176,59 +179,59 @@ def process_family_tree(cursor, tc_no, writer, prefix=""):
 
 def main():
     db_config = read_config()
-    cnx = connect_to_database(db_config)
-    if not cnx:
+    if not db_config:
         return
 
-    cursor = cnx.cursor()
+    with connect_to_database(db_config) as cnx:
+        if not cnx:
+            return
 
-    while True:
-        tc_no = input("TC Kimlik Numarasını Girin: ")
-        if validate_tc(tc_no):
-            break
+        cursor = cnx.cursor()
+
+        while True:
+            tc_no = input("TC Kimlik Numarasını Girin: ")
+            if validate_tc(tc_no):
+                break
+            else:
+                print("Geçersiz TC Kimlik Numarası. Lütfen tekrar deneyin.")
+
+        main_person = get_family_member_by_tc(cursor, tc_no)
+
+        if main_person:
+            main_person_name = f"{main_person[2]}_{main_person[3]}"
+            filename = f"{main_person_name}.csv"
+
+            if os.path.exists(filename):
+                print(f"{filename} zaten var. Üzerine yazmak istiyor musunuz? (E/H)")
+                if input().upper() != "E":
+                    print("İşlem iptal edildi.")
+                    return
+
+            with open(filename, "w", encoding="utf-8", newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow(["Kategori", "TC", "Adı", "Soyadı", "Doğum Tarihi", "Nufus İli", "Nufus İlçesi", "Anne Adı", "Anne TC", "Baba Adı", "Baba TC", "Uyruk"])
+
+                # Ana kişinin kendi sülalesi
+                writer.writerow([])
+                writer.writerow([f"Kendi Sülalesi"])
+                process_family_tree(cursor, tc_no, writer, f"")
+
+                # Ana kişinin annesinin sülalesi
+                anne_tc = main_person[8]
+                if anne_tc:
+                    writer.writerow([])
+                    writer.writerow([f"Annesinin Sülalesi"])
+                    process_family_tree(cursor, anne_tc, writer, f"")
+
+                # Ana kişinin babasının sülalesi
+                baba_tc = main_person[10]
+                if baba_tc:
+                    writer.writerow([])
+                    writer.writerow([f"Babasının Sülalesi"])
+                    process_family_tree(cursor, baba_tc, writer, f"")
+
         else:
-            print("Geçersiz TC Kimlik Numarası. Lütfen tekrar deneyin.")
-
-    main_person = get_family_member_by_tc(cursor, tc_no)
-
-    if main_person:
-        main_person_name = f"{main_person[2]}_{main_person[3]}"
-        filename = f"{main_person_name}.csv"
-
-        if os.path.exists(filename):
-            print(f"{filename} zaten var. Üzerine yazmak istiyor musunuz? (E/H)")
-            if input().upper() != "E":
-                print("İşlem iptal edildi.")
-                cnx.close()
-                return
-
-        with open(filename, "w", encoding="utf-8", newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(["Kategori", "TC", "Adı", "Soyadı", "Doğum Tarihi", "Nufus İli", "Nufus İlçesi", "Anne Adı", "Anne TC", "Baba Adı", "Baba TC", "Uyruk"])
-
-            # Ana kişinin kendi sülalesi
-            writer.writerow([])
-            writer.writerow([f"Kendi Sülalesi"])
-            process_family_tree(cursor, tc_no, writer, f"")
-
-            # Ana kişinin annesinin sülalesi
-            anne_tc = main_person[8]
-            if anne_tc:
-                writer.writerow([])
-                writer.writerow([f"Annesinin Sülalesi"])
-                process_family_tree(cursor, anne_tc, writer, f"")
-
-            # Ana kişinin babasının sülalesi
-            baba_tc = main_person[10]
-            if baba_tc:
-                writer.writerow([])
-                writer.writerow([f"Babasının Sülalesi"])
-                process_family_tree(cursor, baba_tc, writer, f"")
-
-    else:
-        logger.info("Bulunamadı")
-
-    cnx.close()
+            logger.info("Bulunamadı")
 
 if __name__ == "__main__":
     main()
