@@ -2,14 +2,25 @@ import mysql.connector
 import csv
 import logging
 import time
+import re
 
 # Günlük kaydı için temel yapılandırma
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+def validate_tc(tc):
+    if tc and len(tc) == 11 and tc.isdigit():
+        return True
+    return False
+
 def get_user_input(field_name):
-    value = input(f"{field_name} girin: ").strip() or None
-    logging.debug(f"{field_name}: {value}")
-    return value
+    while True:
+        value = input(f"{field_name} girin: ").strip() or None
+        if field_name == "TC" and value:
+            if not validate_tc(value):
+                logging.warning("Geçersiz TC kimlik numarası. Lütfen tekrar deneyin.")
+                continue
+        logging.debug(f"{field_name}: {value}")
+        return value
 
 def build_query(conditions):
     query = " AND ".join(f"{field}='{value}'" for field, value in conditions.items() if value)
@@ -75,7 +86,9 @@ def main():
         return
 
     # Sonuçları dosyaya yaz
-    with open("searcher.csv", "w", encoding="utf-8", newline='') as file:
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    filename = f"searcher_{timestamp}.csv"
+    with open(filename, "w", encoding="utf-8", newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["TC", "Adı", "Soyadı", "Doğum Tarihi", "Nüfus İli", "Nüfus İlçesi", "Anne Adı", "Anne TC", "Baba Adı", "Baba TC", "Uyruk"])
         for row in cursor.fetchall():
@@ -89,7 +102,7 @@ def main():
         writer.writerow(["Son Sorgu Zamanı", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(end_time))])
         writer.writerow(["Toplam Sorgu Süresi (s)", query_time])
 
-    logging.info("Sonuçlar başarıyla CSV dosyasına yazıldı.")
+    logging.info(f"Sonuçlar başarıyla {filename} dosyasına yazıldı.")
 
     # Bağlantıyı kapat
     cursor.close()
