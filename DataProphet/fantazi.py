@@ -206,19 +206,30 @@ def main():
             writer = csv.writer(file)
             writer.writerow(["Kategori", "TC", "Adı", "Soyadı", "Doğum Tarihi", "Nufus İli", "Nufus İlçesi", "Anne Adı", "Anne TC", "Baba Adı", "Baba TC", "Uyruk"])
 
-            # Ana kişinin annesinin ve babasının sülalesini çek
-            anne_tc = main_person[8]
-            baba_tc = main_person[10]
+            process_family_tree(cursor, tc_no, writer, f"")
 
-            if anne_tc:
-                writer.writerow([])
-                writer.writerow([f"{main_person[2]}'nin Annesinin Sülalesi"])
-                process_family_tree(cursor, anne_tc, writer, f"{main_person[2]}'nin Annesinin ")
+            # Amca/Hala ve Dayı/Teyze'lerin TC'lerini al ve her birinin sülale ağacını oluştur
+            dayı_teyze_amca_hala_tc_list = []
+            if main_person:
+                anne_tc = main_person[8]
+                baba_tc = main_person[10]
+                anne_result = get_family_member_by_tc(cursor, anne_tc)
+                baba_result = get_family_member_by_tc(cursor, baba_tc)
+                if anne_result:
+                    dayı_teyze_result = get_siblings_by_parent_tc(cursor, anne_result[8], anne_result[10], anne_result[1])
+                    if dayı_teyze_result:
+                        dayı_teyze_amca_hala_tc_list.extend([dayı_teyze[1] for dayı_teyze in dayı_teyze_result])
+                if baba_result:
+                    amca_hala_result = get_siblings_by_parent_tc(cursor, baba_result[8], baba_result[10], baba_result[1])
+                    if amca_hala_result:
+                        dayı_teyze_amca_hala_tc_list.extend([amca_hala[1] for amca_hala in amca_hala_result])
 
-            if baba_tc:
-                writer.writerow([])
-                writer.writerow([f"{main_person[2]}'nin Babasının Sülalesi"])
-                process_family_tree(cursor, baba_tc, writer, f"{main_person[2]}'nin Babasının ")
+                for tc in dayı_teyze_amca_hala_tc_list:
+                    person = get_family_member_by_tc(cursor, tc)
+                    if person:
+                        writer.writerow([])
+                        writer.writerow([f"{person[2]}'nin Ailesi"])
+                        process_family_tree(cursor, tc, writer, f"{person[2]}'nin ")
 
     else:
         logger.info("Bulunamadı")
