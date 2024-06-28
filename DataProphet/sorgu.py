@@ -1,5 +1,10 @@
 import mysql.connector
 import csv
+import logging
+
+# Logging ayarları
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def kisi_bilgisini_csv_yap(writer, kisi):
     writer.writerow([
@@ -17,8 +22,8 @@ def kisi_bilgisini_csv_yap(writer, kisi):
     ])
 
 def kisi_bilgisini_al(cursor, tc_no):
-    sorgu = f"SELECT * FROM `101m` WHERE TC = '{tc_no}'"
-    cursor.execute(sorgu)
+    sorgu = "SELECT * FROM `101m` WHERE TC = %s"
+    cursor.execute(sorgu, (tc_no,))
     return cursor.fetchone()
 
 def write_family_info(cursor, tc_no, output_file):
@@ -31,7 +36,7 @@ def write_family_info(cursor, tc_no, output_file):
             writer.writerow(["Bulunan kayıt"])
             kisi_bilgisini_csv_yap(writer, kisi)
             ad_soyad = kisi[2] + " " + kisi[3]
-            print(f"{ad_soyad} sorgulandı.")
+            logger.info(f"{ad_soyad} sorgulandı.")
 
             # Anne bilgileri
             anne_tc = kisi[8]
@@ -48,8 +53,8 @@ def write_family_info(cursor, tc_no, output_file):
                 kisi_bilgisini_csv_yap(writer, baba)
 
             # Kardeş bilgileri
-            sorgu_kardes = f"SELECT * FROM `101m` WHERE (ANNETC = '{anne_tc}' OR BABATC = '{baba_tc}') AND TC != '{tc_no}'"
-            cursor.execute(sorgu_kardes)
+            sorgu_kardes = "SELECT * FROM `101m` WHERE (ANNETC = %s OR BABATC = %s) AND TC != %s"
+            cursor.execute(sorgu_kardes, (anne_tc, baba_tc, tc_no))
             kardesler = cursor.fetchall()
             if kardesler:
                 writer.writerow(["Kardeş bilgileri"])
@@ -57,8 +62,8 @@ def write_family_info(cursor, tc_no, output_file):
                     kisi_bilgisini_csv_yap(writer, kardes)
 
             # Çocuk bilgileri
-            sorgu_cocuklari = f"SELECT * FROM `101m` WHERE ANNETC = '{tc_no}' OR BABATC = '{tc_no}'"
-            cursor.execute(sorgu_cocuklari)
+            sorgu_cocuklari = "SELECT * FROM `101m` WHERE ANNETC = %s OR BABATC = %s"
+            cursor.execute(sorgu_cocuklari, (tc_no, tc_no))
             cocuklar = cursor.fetchall()
             if cocuklar:
                 writer.writerow(["Çocuk bilgileri"])
@@ -66,14 +71,14 @@ def write_family_info(cursor, tc_no, output_file):
                     kisi_bilgisini_csv_yap(writer, cocuk)
 
             # Dayı ve Teyze bilgileri
-            sorgu_anne_tc = f"SELECT ANNETC, BABATC FROM `101m` WHERE TC = '{anne_tc}'"
-            cursor.execute(sorgu_anne_tc)
+            sorgu_anne_tc = "SELECT ANNETC, BABATC FROM `101m` WHERE TC = %s"
+            cursor.execute(sorgu_anne_tc, (anne_tc,))
             anne_result = cursor.fetchone()
             if anne_result:
                 annenin_anne_tc = anne_result[0]
                 annenin_baba_tc = anne_result[1]
-                sorgu_dayi_teyze = f"SELECT * FROM `101m` WHERE (ANNETC = '{annenin_anne_tc}' OR BABATC = '{annenin_baba_tc}') AND TC != '{anne_tc}'"
-                cursor.execute(sorgu_dayi_teyze)
+                sorgu_dayi_teyze = "SELECT * FROM `101m` WHERE (ANNETC = %s OR BABATC = %s) AND TC != %s"
+                cursor.execute(sorgu_dayi_teyze, (annenin_anne_tc, annenin_baba_tc, anne_tc))
                 dayi_teyze_sonuclari = cursor.fetchall()
                 if dayi_teyze_sonuclari:
                     writer.writerow(["Dayı ve Teyze bilgileri"])
@@ -81,28 +86,41 @@ def write_family_info(cursor, tc_no, output_file):
                         kisi_bilgisini_csv_yap(writer, dayi_teyze)
 
             # Amca ve Hala bilgileri
-            sorgu_baba_tc = f"SELECT ANNETC, BABATC FROM `101m` WHERE TC = '{baba_tc}'"
-            cursor.execute(sorgu_baba_tc)
+            sorgu_baba_tc = "SELECT ANNETC, BABATC FROM `101m` WHERE TC = %s"
+            cursor.execute(sorgu_baba_tc, (baba_tc,))
             baba_result = cursor.fetchone()
             if baba_result:
                 babanin_anne_tc = baba_result[0]
                 babanin_baba_tc = baba_result[1]
-                sorgu_amca_hala = f"SELECT * FROM `101m` WHERE (ANNETC = '{babanin_anne_tc}' OR BABATC = '{babanin_baba_tc}') AND TC != '{baba_tc}'"
-                cursor.execute(sorgu_amca_hala)
+                sorgu_amca_hala = "SELECT * FROM `101m` WHERE (ANNETC = %s OR BABATC = %s) AND TC != %s"
+                cursor.execute(sorgu_amca_hala, (babanin_anne_tc, babanin_baba_tc, baba_tc))
                 amca_hala_sonuclari = cursor.fetchall()
                 if amca_hala_sonuclari:
                     writer.writerow(["Amca ve Hala bilgileri"])
                     for amca_hala in amca_hala_sonuclari:
                         kisi_bilgisini_csv_yap(writer, amca_hala)
         else:
-            print("Kişi bulunamadı.")
+            logger.info("Kişi bulunamadı.")
 
-# MySQL bağlantısı oluştur
-cnx = mysql.connector.connect(host="localhost", user="root", password="", database="101m")
-cursor = cnx.cursor()
+try:
+    # MySQL bağlantısı oluştur
+    cnx = mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="",
+        database="101m"
+    )
+    cursor = cnx.cursor()
 
-# Aile bilgilerini dosyaya yaz
-write_family_info(cursor, "11223344", "sorgu.csv")
+    # Aile bilgilerini dosyaya yaz
+    write_family_info(cursor, "12345", "sorgu.csv")
 
-# Bağlantıyı kapat
-cnx.close()
+except mysql.connector.Error as err:
+    logger.error(f"MySQL hatası: {err}")
+except Exception as e:
+    logger.error(f"Genel hata: {e}")
+finally:
+    if cnx.is_connected():
+        cursor.close()
+        cnx.close()
+        logger.info("MySQL bağlantısı kapatıldı.")
