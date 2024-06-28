@@ -147,7 +147,7 @@ if main_person:
                 yegenleri_result = get_children_by_parent_tc(cursor, kardes[1])
                 if yegenleri_result:
                     for yegen in yegenleri_result:
-                        write_person_info(writer, yegen, "Yeğeni (Kardeşinin Çocuğu)")
+                        write_person_info(writer, yegen, "Yeğeni")
 
                         # Yeğenin Çocuğu
                         yegenin_cocugu_result = get_children_by_parent_tc(cursor, yegen[1])
