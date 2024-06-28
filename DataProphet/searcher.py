@@ -3,6 +3,7 @@ import csv
 import logging
 import time
 import re
+import configparser
 
 # Günlük kaydı için temel yapılandırma
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -31,12 +32,15 @@ def write_person_info(writer, person):
     writer.writerow(person)
 
 def connect_to_database():
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+    db_config = config['DATABASE']
     try:
         db = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="",
-            database="101m"
+            host=db_config['host'],
+            user=db_config['user'],
+            password=db_config['password'],
+            database=db_config['database']
         )
         logging.info("Veritabanı bağlantısı başarılı.")
         return db
