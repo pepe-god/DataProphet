@@ -24,7 +24,7 @@ def get_user_input(field_name):
         return value
 
 def build_query(conditions):
-    query = " AND ".join(f"{field}='{value}'" for field, value in conditions.items() if value)
+    query = " AND ".join(f"{field}='{value}'" if field != "DOGUMTARIHI" else f"{field} LIKE '%{value}%'" for field, value in conditions.items() if value)
     logging.debug(f"Oluşturulan Sorgu: {query}")
     return query
 
@@ -71,7 +71,7 @@ def main():
         "TC": get_user_input("TC"),
         "ADI": get_user_input("Adı"),
         "SOYADI": get_user_input("Soyadı"),
-        "DOGUMTARIHI": get_user_input("Doğum Tarihi (G-A-YYYY)"),
+        "DOGUMTARIHI": get_user_input("Doğum Yılı (YYYY)"),  # Doğum yılı olarak alınıyor
         "NUFUSIL": get_user_input("Nüfus İli"),
         "NUFUSILCE": get_user_input("Nüfus İlçesi"),
         "ANNEADI": get_user_input("Anne Adı"),
