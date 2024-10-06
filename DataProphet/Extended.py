@@ -162,17 +162,18 @@ def process_family_tree(cursor, tc_no, writer, prefix=""):
                     for kuzen_cocugu in kuzen_cocuklari_result:
                         write_person_info(writer, kuzen_cocugu, f"{prefix}{kuzen[2]} {kuzen[3]}'in Çocuğu")
 
-        # Summary
-        summary_data = {
-            "Kuzen Sayısı": len(kuzenleri_result) if kuzenleri_result else 0,
-            "Kardeş Sayısı": len(kardesleri_result) if kardesleri_result else 0,
-            "Yeğen Sayısı": sum(len(get_children_by_parent_tc(cursor, kardes[1])) for kardes in kardesleri_result) if kardesleri_result else 0,
-            "Çocuk Sayısı": len(cocuklari_result) if cocuklari_result else 0,
-            "Amca/Hala Sayısı": len(amca_hala_result) if amca_hala_result else 0,
-            "Dayı/Teyze Sayısı": len(dayı_teyze_result) if dayı_teyze_result else 0,
-        }
+            # Summary
+            summary_data = {
+                "Kuzen Sayısı": len(kuzenleri_result) if kuzenleri_result else 0,
+                "Kardeş Sayısı": len(kardesleri_result) if kardesleri_result else 0,
+                "Yeğen Sayısı": len(yegenleri_result) if 'yegenleri_result' in locals() else 0,
+                "Çocuk Sayısı": len(cocuklari_result) if cocuklari_result else 0,
+                "Amca/Hala Sayısı": len(amca_hala_result) if amca_hala_result else 0,
+                "Dayı/Teyze Sayısı": len(dayı_teyze_result) if dayı_teyze_result else 0,
+                "Kuzen Çocukları Sayısı": sum([len(get_children_by_parent_tc(cursor, kuzen[1])) for kuzen in kuzenleri_result]) if kuzenleri_result else 0,
+            }
 
-        write_summary(writer, summary_data)
+            write_summary(writer, summary_data)
 
     else:
         logger.info("Bulunamadı")
