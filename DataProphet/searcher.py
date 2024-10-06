@@ -89,13 +89,17 @@ def main():
         db.close()
         return
 
+    # Sonuçları al
+    results = cursor.fetchall()
+    total_records = len(results)
+
     # Sonuçları dosyaya yaz
     timestamp = time.strftime("%Y%m%d-%H%M%S")
     filename = f"searcher_{timestamp}.csv"
     with open(filename, "w", encoding="utf-8", newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["TC", "Adı", "Soyadı", "Doğum Tarihi", "Nüfus İli", "Nüfus İlçesi", "Anne Adı", "Anne TC", "Baba Adı", "Baba TC", "Uyruk"])
-        for row in cursor.fetchall():
+        for row in results:
             # ID sütununu atlayarak diğer sütunları yaz
             write_person_info(writer, row[1:])
 
@@ -105,8 +109,9 @@ def main():
         writer.writerow(["İlk Sorgu Zamanı", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_time))])
         writer.writerow(["Son Sorgu Zamanı", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(end_time))])
         writer.writerow(["Toplam Sorgu Süresi (s)", query_time])
+        writer.writerow(["Toplam Kayıt Sayısı", total_records])
 
-    logging.info(f"Sonuçlar başarıyla {filename} dosyasına yazıldı.")
+    logging.info(f"Sonuçlar başarıyla {filename} dosyasına yazıldı. Toplam kayıt sayısı: {total_records}")
 
     # Bağlantıyı kapat
     cursor.close()
