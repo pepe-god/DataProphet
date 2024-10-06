@@ -195,6 +195,7 @@ def main():
                 "Çocuk Sayısı": len(cocuklari_result) if cocuklari_result else 0,
                 "Amca/Hala Sayısı": len(amca_hala_result) if amca_hala_result else 0,
                 "Dayı/Teyze Sayısı": len(dayı_teyze_result) if dayı_teyze_result else 0,
+                "Kuzen Çocukları Sayısı": sum([len(get_children_by_parent_tc(cursor, kuzen[1])) for kuzen in kuzenleri_result]) if kuzenleri_result else 0,
             }
 
             write_summary(writer, summary_data)
