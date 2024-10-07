@@ -206,7 +206,7 @@ def process_tc_number(tc_no):
 
 def main():
     root = tk.Tk()
-    root.title("Aile Ağı Oluşturucu")
+    root.title("Family Tree")
 
     label = tk.Label(root, text="TC Kimlik Numarası:")
     label.pack(pady=10)
