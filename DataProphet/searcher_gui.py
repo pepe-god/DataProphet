@@ -40,9 +40,13 @@ def connect_to_database():
         logging.error(f"Veritabanı bağlantı hatası: {err}")
         return None
 
-def execute_query(cursor, query):
+def execute_query(cursor, query, limit=None, offset=None):
     try:
         start_time = time.time()
+        if limit:
+            query += f" LIMIT {limit}"
+        if offset:
+            query += f" OFFSET {offset}"
         cursor.execute(query)
         end_time = time.time()
         logging.info("Sorgu başarıyla çalıştırıldı.")
@@ -81,25 +85,32 @@ def search(entries):
 
     # Sorguyu hazırla ve çalıştır
     query = "SELECT * FROM `101m` WHERE " + build_query(query_conditions)
-    success, start_time, end_time, query_time = execute_query(cursor, query)
-    if not success:
-        cursor.close()
-        db.close()
-        return
+    limit = 100000  # Her seferinde 1000 kayıt getir
+    offset = 0
+    total_records = 0
 
-    # Sonuçları al
-    results = cursor.fetchall()
-    total_records = len(results)
-
-    # Sonuçları dosyaya yaz
     timestamp = time.strftime("%Y%m%d-%H%M%S")
     filename = f"searcher_{timestamp}.csv"
     with open(filename, "w", encoding="utf-8", newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["TC", "Adı", "Soyadı", "Doğum Tarihi", "Nüfus İli", "Nüfus İlçesi", "Anne Adı", "Anne TC", "Baba Adı", "Baba TC", "Uyruk"])
-        for row in results:
-            # ID sütununu atlayarak diğer sütunları yaz
-            write_person_info(writer, row[1:])
+
+        while True:
+            success, start_time, end_time, query_time = execute_query(cursor, query, limit, offset)
+            if not success:
+                cursor.close()
+                db.close()
+                return
+
+            results = cursor.fetchall()
+            if not results:
+                break
+
+            for row in results:
+                write_person_info(writer, row[1:])
+                total_records += 1
+
+            offset += limit
 
         # Sorgu bilgilerini en alt kısma yaz
         writer.writerow([])  # Boş satır ekleyelim
