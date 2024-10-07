@@ -60,7 +60,7 @@ You need to install the following dependencies for these scripts:
 
 #### To Install Dependencies
 
-#### Linux
+#### Terminal
 1. **mysql-connector-python**:
    ```bash
    pip install mysql-connector-python
