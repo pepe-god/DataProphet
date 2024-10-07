@@ -117,6 +117,7 @@ def process_family_tree(cursor, tc_no, writer, prefix=""):
 
     # Kardeşleri
     kardesleri_result = get_siblings_by_parent_tc(cursor, anne_tc, baba_tc, tc_no)
+    yegenleri_count = 0
     if kardesleri_result:
         for kardes in kardesleri_result:
             write_person_info(writer, kardes, prefix + "--Kardeşi")
@@ -124,6 +125,7 @@ def process_family_tree(cursor, tc_no, writer, prefix=""):
             # Yeğenleri
             yegenleri_result = get_children_by_parent_tc(cursor, kardes[1])
             if yegenleri_result:
+                yegenleri_count += len(yegenleri_result)
                 for yegen in yegenleri_result:
                     write_person_info(writer, yegen, prefix + "Yeğeni")
 
@@ -165,7 +167,7 @@ def process_family_tree(cursor, tc_no, writer, prefix=""):
     return {
         "Kuzen Sayısı": len(kuzenleri_result) if kuzenleri_result else 0,
         "Kardeş Sayısı": len(kardesleri_result) if kardesleri_result else 0,
-        "Yeğen Sayısı": len(yegenleri_result) if 'yegenleri_result' in locals() else 0,
+        "Yeğen Sayısı": yegenleri_count,
         "Çocuk Sayısı": len(cocuklari_result) if cocuklari_result else 0,
         "Amca/Hala Sayısı": len(amca_hala_result) if amca_hala_result else 0,
         "Dayı/Teyze Sayısı": len(dayı_teyze_result) if dayı_teyze_result else 0,
