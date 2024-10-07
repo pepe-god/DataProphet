@@ -27,13 +27,11 @@ Bu scriptler için aşağıdaki bağımlılıkları yüklemeniz gerekmektedir:
 
 ### Bağımlılıkları Yüklemek İçin
 
-#### Linux
+#### Terminal
 1. **mysql-connector-python**:
    ```bash
    pip install mysql-connector-python
-
-
-# -----
+##
 A script that extracts Turkish citizens' identity information from SQL using Python and more!
 Once you have identified the person, get the target person's genealogical information with the more complex family tree script.
 
