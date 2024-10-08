@@ -1,5 +1,5 @@
 # DataProphet
-A script that extracts Turkish citizens' identity information from SQL using Python and more!
+A script that extracts citizens' identity information from SQL using Python and more!
 Once you have identified the person, get the target person's genealogical information with the more complex family tree script.
 
 **Don't forget to star if it worked for you.**
