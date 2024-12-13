@@ -54,7 +54,7 @@ def get_relatives(cursor, anne_tc, baba_tc, exclude_tc):
     return cursor.fetchall()
 
 def write_person_info_to_csv(writer, person, category):
-    writer.writerow([category] + list(person[:4]) + list(person[8:16]) + list(person[17:]) + [person[16], person[17]])
+    writer.writerow([category] + list(person[:4]) + list(person[8:16]) + [person[18], person[19], person[16], person[17]])
 
 def process_tc_number(tc_no):
     if not validate_tc(tc_no):
@@ -108,7 +108,7 @@ def process_tc_number(tc_no):
     filename = f"./index/{main_person[1]}_{main_person[2]}.csv"
     with open(filename, "w", encoding="utf-8", newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(["Kategori", "TC", "AD", "SOYAD", "GSM", "DOGUMTARIHI", "OLUMTARIHI", "DOGUMYERI", "MEMLEKETIL", "MEMLEKETILCE", "MEMLEKETKOY", "ADRESIL", "ADRESILCE", "AILESIRANO", "BIREYSIRANO", "MEDENIHAL", "CINSIYET"])
+        writer.writerow(["Kategori", "TC", "AD", "SOYAD", "GSM", "DOGUMTARIHI", "OLUMTARIHI", "DOGUMYERI", "MEMLEKETIL", "MEMLEKETILCE", "MEMLEKETKOY", "ADRESIL", "ADRESILCE", "MEDENIHAL", "CINSIYET", "AILESIRANO", "BIREYSIRANO"])
         write_person_info_to_csv(writer, main_person, "Ana Kayıt")
         if anne:
             write_person_info_to_csv(writer, anne, "Anne")
