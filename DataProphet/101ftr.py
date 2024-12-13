@@ -77,14 +77,11 @@ def process_family_tree(cursor, gsm_cursor, tc_no, writer, prefix=""):
     gsm_data = get_gsm_data_by_tc(gsm_cursor, tc_no)
     write_person_info(writer, main_person, prefix + "Ana Kayıt", gsm_data)
 
-    # Anne bilgileri
     anne_tc = main_person[8]
     anne_result = get_family_member_by_tc(cursor, anne_tc)
     if anne_result:
         gsm_data = get_gsm_data_by_tc(gsm_cursor, anne_tc)
         write_person_info(writer, anne_result, prefix + "Anne", gsm_data)
-
-        # Anne'nin ebeveynleri (Büyükanne ve Büyükbaba)
         anne_anne_tc = anne_result[8]
         anne_baba_tc = anne_result[10]
         anne_anne_result = get_family_member_by_tc(cursor, anne_anne_tc)
@@ -96,14 +93,11 @@ def process_family_tree(cursor, gsm_cursor, tc_no, writer, prefix=""):
             gsm_data = get_gsm_data_by_tc(gsm_cursor, anne_baba_tc)
             write_person_info(writer, anne_baba_result, prefix + "Büyükbaba (Anne'nin Baba)", gsm_data)
 
-    # Baba bilgileri
     baba_tc = main_person[10]
     baba_result = get_family_member_by_tc(cursor, baba_tc)
     if baba_result:
         gsm_data = get_gsm_data_by_tc(gsm_cursor, baba_tc)
         write_person_info(writer, baba_result, prefix + "Baba", gsm_data)
-
-        # Baba'nın ebeveynleri (Büyükanne ve Büyükbaba)
         baba_anne_tc = baba_result[8]
         baba_baba_tc = baba_result[10]
         baba_anne_result = get_family_member_by_tc(cursor, baba_anne_tc)
@@ -115,44 +109,35 @@ def process_family_tree(cursor, gsm_cursor, tc_no, writer, prefix=""):
             gsm_data = get_gsm_data_by_tc(gsm_cursor, baba_baba_tc)
             write_person_info(writer, baba_baba_result, prefix + "Büyükbaba (Baba'nın Baba)", gsm_data)
 
-    # Çocukları
     cocuklari_result = get_children_by_parent_tc(cursor, main_person[1])
     if cocuklari_result:
         for cocuk in cocuklari_result:
             gsm_data = get_gsm_data_by_tc(gsm_cursor, cocuk[1])
-            write_person_info(writer, cocuk, prefix + "-Çocuk", gsm_data)
-
-            # Torunları
+            write_person_info(writer, cocuk, prefix + "Çocuk", gsm_data)
             torunlari_result = get_children_by_parent_tc(cursor, cocuk[1])
             if torunlari_result:
                 for torun in torunlari_result:
                     gsm_data = get_gsm_data_by_tc(gsm_cursor, torun[1])
                     write_person_info(writer, torun, prefix + f"{cocuk[2]} {cocuk[3]}'in Çocuğu", gsm_data)
 
-    # Kardeşleri
     kardesleri_result = get_siblings_by_parent_tc(cursor, anne_tc, baba_tc, tc_no)
     yegenleri_count = 0
     if kardesleri_result:
         for kardes in kardesleri_result:
             gsm_data = get_gsm_data_by_tc(gsm_cursor, kardes[1])
-            write_person_info(writer, kardes, prefix + "--Kardeşi", gsm_data)
-
-            # Yeğenleri
+            write_person_info(writer, kardes, prefix + "Kardeşi", gsm_data)
             yegenleri_result = get_children_by_parent_tc(cursor, kardes[1])
             if yegenleri_result:
                 yegenleri_count += len(yegenleri_result)
                 for yegen in yegenleri_result:
                     gsm_data = get_gsm_data_by_tc(gsm_cursor, yegen[1])
                     write_person_info(writer, yegen, prefix + "Yeğeni", gsm_data)
-
-                    # Yeğenin Çocuğu
                     yegenin_cocugu_result = get_children_by_parent_tc(cursor, yegen[1])
                     if yegenin_cocugu_result:
                         for yegenin_cocugu in yegenin_cocugu_result:
                             gsm_data = get_gsm_data_by_tc(gsm_cursor, yegenin_cocugu[1])
                             write_person_info(writer, yegenin_cocugu, prefix + f"{yegen[2]} {yegen[3]}'in Çocuğu", gsm_data)
 
-    # Dayı/Teyze ve Amca/Hala TC'lerini bir listeye topla
     dayı_teyze_amca_hala_tc_list = []
     dayı_teyze_result = []
     amca_hala_result = []
@@ -162,23 +147,20 @@ def process_family_tree(cursor, gsm_cursor, tc_no, writer, prefix=""):
             dayı_teyze_amca_hala_tc_list.extend([dayı_teyze[1] for dayı_teyze in dayı_teyze_result])
             for dayı_teyze in dayı_teyze_result:
                 gsm_data = get_gsm_data_by_tc(gsm_cursor, dayı_teyze[1])
-                write_person_info(writer, dayı_teyze, prefix + "---Dayı/Teyze", gsm_data)
+                write_person_info(writer, dayı_teyze, prefix + "Dayı/Teyze", gsm_data)
     if baba_result:
         amca_hala_result = get_siblings_by_parent_tc(cursor, baba_result[8], baba_result[10], baba_result[1])
         if amca_hala_result:
             dayı_teyze_amca_hala_tc_list.extend([amca_hala[1] for amca_hala in amca_hala_result])
             for amca_hala in amca_hala_result:
                 gsm_data = get_gsm_data_by_tc(gsm_cursor, amca_hala[1])
-                write_person_info(writer, amca_hala, prefix + "---Amca/Hala", gsm_data)
+                write_person_info(writer, amca_hala, prefix + "Amca/Hala", gsm_data)
 
-    # Tüm kuzenleri tek bir sorguda al
     kuzenleri_result = get_cousins_by_parent_tc_list(cursor, dayı_teyze_amca_hala_tc_list)
     if kuzenleri_result:
         for kuzen in kuzenleri_result:
             gsm_data = get_gsm_data_by_tc(gsm_cursor, kuzen[1])
             write_person_info(writer, kuzen, prefix + "Kuzen", gsm_data)
-
-            # Kuzenin Çocukları
             kuzen_cocuklari_result = get_children_by_parent_tc(cursor, kuzen[1])
             if kuzen_cocuklari_result:
                 for kuzen_cocugu in kuzen_cocuklari_result:
@@ -215,7 +197,7 @@ def process_tc_number(tc_no):
 
     if main_person:
         main_person_name = f"{main_person[2]}_{main_person[3]}"
-        filename = f"{main_person_name}.csv"
+        filename = f"./index/{main_person_name}.csv"
 
         if os.path.exists(filename):
             if messagebox.askyesno("Dosya Var", f"{filename} zaten var. Üzerine yazmak istiyor musunuz?"):
@@ -230,13 +212,11 @@ def process_tc_number(tc_no):
             writer = csv.writer(file)
             writer.writerow(["Kategori", "TC", "Adı", "Soyadı", "Doğum Tarihi", "Nufus İli", "Nufus İlçesi", "Anne Adı", "Anne TC", "Baba Adı", "Baba TC", "Uyruk", "GSM"])
 
-            # Ana kişinin kendi sülalesi
             writer.writerow([])
             writer.writerow([f"Kendi Sülalesi"])
             summary_data_kendi = process_family_tree(cursor, gsm_cursor, tc_no, writer, f"")
             write_summary(writer, summary_data_kendi)
 
-            # Ana kişinin annesinin sülalesi
             anne_tc = main_person[8]
             if anne_tc:
                 writer.writerow([])
@@ -244,7 +224,6 @@ def process_tc_number(tc_no):
                 summary_data_anne = process_family_tree(cursor, gsm_cursor, anne_tc, writer, f"")
                 write_summary(writer, summary_data_anne)
 
-            # Ana kişinin babasının sülalesi
             baba_tc = main_person[10]
             if baba_tc:
                 writer.writerow([])
