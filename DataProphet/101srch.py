@@ -9,11 +9,9 @@ from tkinter import messagebox
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def validate_tc(tc):
-    return tc and len(tc) == 11 and tc.isdigit()
+def validate_tc(tc): return tc and len(tc) == 11 and tc.isdigit()
 
-def build_query(conditions):
-    return " AND ".join(f"{field}='{value}'" if field != "DOGUMTARIHI" else f"{field} LIKE '%{value}%'" for field, value in conditions.items() if value)
+def build_query(conditions): return " AND ".join(f"{field}='{value}'" if field != "DOGUMTARIHI" else f"{field} LIKE '%{value}%'" for field, value in conditions.items() if value)
 
 def connect_to_database():
     config = configparser.ConfigParser()
@@ -53,23 +51,13 @@ def search(entries):
         messagebox.showwarning("Uyarı", "Geçersiz TC kimlik numarası.")
         return
 
-    # GUI alan adlarını veritabanı alan adlarıyla eşleştir
     db_fields = {
-        "TC": "TC",
-        "Adı": "ADI",
-        "Soyadı": "SOYADI",
-        "Doğum Yılı (YYYY)": "DOGUMTARIHI",
-        "Nüfus İli": "NUFUSIL",
-        "Nüfus İlçesi": "NUFUSILCE",
-        "Anne Adı": "ANNEADI",
-        "Anne TC'si": "ANNETC",
-        "Baba Adı": "BABAADI",
-        "Baba TC'si": "BABATC",
-        "Uyruk": "UYRUK"
+        "TC": "TC", "Adı": "ADI", "Soyadı": "SOYADI", "Doğum Yılı (YYYY)": "DOGUMTARIHI",
+        "Nüfus İli": "NUFUSIL", "Nüfus İlçesi": "NUFUSILCE", "Anne Adı": "ANNEADI", "Anne TC'si": "ANNETC",
+        "Baba Adı": "BABAADI", "Baba TC'si": "BABATC", "Uyruk": "UYRUK"
     }
 
     query_conditions = {db_fields[field]: value for field, value in query_conditions.items()}
-
     query = "SELECT * FROM `101m` WHERE " + build_query(query_conditions)
     limit, offset, total_records = 100000, 0, 0
     timestamp = time.strftime("%Y%m%d-%H%M%S")
