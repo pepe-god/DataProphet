@@ -122,6 +122,18 @@ def process_tc_number(tc_no):
             write_person_info_to_csv(writer, baba_anne, "Babaanne")
         if baba_baba:
             write_person_info_to_csv(writer, baba_baba, "Dede")
+        children_written = set()
+        for child in children:
+            child_tc = child[0]
+            if child_tc in children_written:
+                continue
+            category = ""
+            if child[19] == "Erkek":
+                category = "Oğlu"
+            elif child[19] == "Kadın":
+                category = "Kızı"
+            write_person_info_to_csv(writer, child, category)
+            children_written.add(child_tc)
         for sibling in siblings:
             category = ""
             is_step_sibling = sibling[7] != anne_tc or sibling[5] != baba_tc
@@ -155,18 +167,6 @@ def process_tc_number(tc_no):
             cousins = get_children(cursor, relative[0])
             for cousin in cousins:
                 write_person_info_to_csv(writer, cousin, "Kuzen")
-        children_written = set()
-        for child in children:
-            child_tc = child[0]
-            if child_tc in children_written:
-                continue
-            category = ""
-            if child[19] == "Erkek":
-                category = "Oğlu"
-            elif child[19] == "Kadın":
-                category = "Kızı"
-            write_person_info_to_csv(writer, child, category)
-            children_written.add(child_tc)
 
     messagebox.showinfo("Başarılı", f"Kişi ve ailesi bilgileri {filename} dosyasına kaydedildi.")
 
