@@ -9,6 +9,15 @@ from tkinter import messagebox
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Veritabanı alanları için global sözlük
+DB_FIELDS = {
+    "TC": "TC", "Adı": "AD", "Soyadı": "SOYAD", "GSM": "GSM", "Baba Adı": "BABAADI", "Baba TC'si": "BABATC",
+    "Anne Adı": "ANNEADI", "Anne TC'si": "ANNETC", "Doğum Tarihi": "DOGUMTARIHI", "Ölüm Tarihi": "OLUMTARIHI",
+    "Doğum Yeri": "DOGUMYERI", "Memleket İli": "MEMLEKETIL", "Memleket İlçesi": "MEMLEKETILCE",
+    "Memleket Köyü": "MEMLEKETKOY", "Adres İli": "ADRESIL", "Adres İlçesi": "ADRESILCE",
+    "Aile Sıra No": "AILESIRANO", "Birey Sıra No": "BIREYSIRANO", "Medeni Hal": "MEDENIHAL", "Cinsiyet": "CINSIYET"
+}
+
 def validate_tc(tc):
     return tc and len(tc) == 11 and tc.isdigit()
 
@@ -53,23 +62,16 @@ def search(entries):
         messagebox.showwarning("Uyarı", "Geçersiz TC kimlik numarası.")
         return
 
-    db_fields = {
-        "TC": "TC", "Adı": "AD", "Soyadı": "SOYAD", "GSM": "GSM", "Baba Adı": "BABAADI", "Baba TC'si": "BABATC",
-        "Anne Adı": "ANNEADI", "Anne TC'si": "ANNETC", "Doğum Tarihi": "DOGUMTARIHI", "Ölüm Tarihi": "OLUMTARIHI",
-        "Doğum Yeri": "DOGUMYERI", "Memleket İli": "MEMLEKETIL", "Memleket İlçesi": "MEMLEKETILCE",
-        "Memleket Köyü": "MEMLEKETKOY", "Adres İli": "ADRESIL", "Adres İlçesi": "ADRESILCE",
-        "Aile Sıra No": "AILESIRANO", "Birey Sıra No": "BIREYSIRANO", "Medeni Hal": "MEDENIHAL", "Cinsiyet": "CINSIYET"
-    }
-
-    query_conditions = {db_fields[field]: value for field, value in query_conditions.items() if value}
-    query = "SELECT TC, AD, SOYAD, GSM, BABAADI, BABATC, ANNEADI, ANNETC, DOGUMTARIHI, OLUMTARIHI, DOGUMYERI, MEMLEKETIL, MEMLEKETILCE, MEMLEKETKOY, ADRESIL, ADRESILCE, AILESIRANO, BIREYSIRANO, MEDENIHAL, CINSIYET FROM `109m` WHERE " + build_query(query_conditions)
+    # Veritabanı alanlarını DB_FIELDS sözlüğünden alıyoruz
+    query_conditions = {DB_FIELDS[field]: value for field, value in query_conditions.items() if value}
+    query = "SELECT " + ", ".join(DB_FIELDS.values()) + " FROM `109m` WHERE " + build_query(query_conditions)
     limit, offset, total_records = 100000, 0, 0
     timestamp = time.strftime("%Y%m%d-%H%M%S")
     filename = f"./index/searcher_{timestamp}.csv"
 
     with open(filename, "w", encoding="utf-8", newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(["TC", "Adı", "Soyadı", "GSM", "Baba Adı", "Baba TC", "Anne Adı", "Anne TC", "Doğum Tarihi", "Ölüm Tarihi", "Doğum Yeri", "Memleket İli", "Memleket İlçesi", "Memleket Köyü", "Adres İli", "Adres İlçesi", "Aile Sıra No", "Birey Sıra No", "Medeni Hal", "Cinsiyet"])
+        writer.writerow(list(DB_FIELDS.keys()))  # Başlıkları DB_FIELDS anahtarları ile yazıyoruz
 
         while True:
             success, start_time, end_time, query_time = execute_query(cursor, query, limit, offset)
@@ -96,12 +98,7 @@ def search(entries):
 def create_gui():
     root = tk.Tk(); root.title("Searcher")
     entries = {}
-    fields = [
-        "TC", "Adı", "Soyadı", "GSM", "Baba Adı", "Baba TC'si", "Anne Adı", "Anne TC'si",
-        "Doğum Tarihi", "Ölüm Tarihi", "Doğum Yeri", "Memleket İli", "Memleket İlçesi",
-        "Memleket Köyü", "Adres İli", "Adres İlçesi", "Aile Sıra No", "Birey Sıra No",
-        "Medeni Hal", "Cinsiyet"
-    ]
+    fields = list(DB_FIELDS.keys())  # Alanları DB_FIELDS anahtarlarıyla alıyoruz
 
     for field in fields:
         row = tk.Frame(root)
