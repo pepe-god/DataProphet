@@ -1,19 +1,28 @@
-## Dependencies
+## 📦 Dependencies
 
-You need to install the following dependencies for these scripts:
-
-#### Python Standard Libraries
-- **csv**: Used to read and write CSV files.
-- **logging**: Used for logging.
-- **configparser**: Used for reading configuration files.
-- **tkinter**: Used to create GUI (for the second script).
+### Python Standard Libraries
+| Library       | Purpose                                  |
+|---------------|------------------------------------------|
+| `csv`         | CSV dosyalarını okuma/yazma              |
+| `logging`     | Loglama işlemleri                        |
+| `configparser`| Yapılandırma dosyalarını okuma           |
+| `tkinter`     | GUI oluşturma (ikinci script için)       |
 
 ### External Libraries
-- **mysql-connector-python**: Used to connect to the MySQL database and run queries.
+| Library                   | Installation Command                     |
+|---------------------------|------------------------------------------|
+| `mysql-connector-python`  | `pip install mysql-connector-python`     |
 
-#### To Install Dependencies
-
-#### Terminal
-1. **mysql-connector-python**:
+### 💻 Kurulum
+1. Gerekli kütüphaneleri yükleyin:
    ```bash
    pip install mysql-connector-python
+   ```
+
+2. (Opsiyonel) Sanal ortam kullanımı tavsiye edilir:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # Linux/macOS
+   venv\Scripts\activate     # Windows
+   pip install mysql-connector-python
+   ```
