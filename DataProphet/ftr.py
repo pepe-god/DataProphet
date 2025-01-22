@@ -58,7 +58,6 @@ def get_current_address(cursor, tc_no):
     query = "SELECT GUNCELADRES FROM adresv2 WHERE TC = %s"
     cursor.execute(query, (tc_no,))
     result = cursor.fetchone()
-    cursor.fetchall()
     return result[0] if result else None
 
 def write_person_info_to_csv(writer, person, category, current_address):
