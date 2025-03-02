@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import mysql.connector
+import mysql.connector.pooling
 import csv
 import logging
 import time
@@ -7,175 +7,235 @@ import configparser
 import tkinter as tk
 from tkinter import messagebox
 from contextlib import contextmanager
+from concurrent.futures import ThreadPoolExecutor
+import os
+from typing import Dict, Tuple, Optional
 
-# Loglama ayarları
-logging.basicConfig(level=logging.DEBUG,  # Tüm seviyeleri logla, üretimde INFO veya WARNING'e düşürülebilir
-                    format='%(asctime)s - %(levelname)s - %(module)s:%(lineno)d - %(message)s')
+# Logging Configuration
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(module)s - %(message)s',
+    handlers=[
+        logging.FileHandler('app.log', encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
 
-# Log dosyasına yazdırma (isteğe bağlı, config.ini'den ayarlanabilir)
-config = configparser.ConfigParser()
-config.read('config.ini')
-if config.getboolean('LOGGING', 'log_to_file', fallback=False): # config.ini'de [LOGGING] log_to_file = true ise dosyaya logla
-    log_filename = config.get('LOGGING', 'log_filename', fallback='searcher.log') # config.ini'de [LOGGING] log_filename = dosya_adı belirtilebilir
-    file_handler = logging.FileHandler(log_filename, encoding='utf-8')
-    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(module)s:%(lineno)d - %(message)s'))
-    logging.getLogger('').addHandler(file_handler) # root logger'a ekle
-
-
+# Database Configuration
+DB_CONFIG: Optional[configparser.SectionProxy] = None
+DB_POOL: Optional[mysql.connector.pooling.MySQLConnectionPool] = None
 DB_FIELDS = {
-    "TC": "TC", "Adı": "AD", "Soyadı": "SOYAD", "GSM": "GSM", "Baba Adı": "BABAADI", "Baba TC'si": "BABATC",
-    "Anne Adı": "ANNEADI", "Anne TC'si": "ANNETC", "Doğum Tarihi": "DOGUMTARIHI", "Ölüm Tarihi": "OLUMTARIHI",
-    "Doğum Yeri": "DOGUMYERI", "Memleket İli": "MEMLEKETIL", "Memleket İlçesi": "MEMLEKETILCE",
-    "Memleket Köyü": "MEMLEKETKOY", "Adres İli": "ADRESIL", "Adres İlçesi": "ADRESILCE",
-    "Aile Sıra No": "AILESIRANO", "Birey Sıra No": "BIREYSIRANO", "Medeni Hal": "MEDENIHAL", "Cinsiyet": "CINSIYET"
+    "TC": "TC", "Adı": "AD", "Soyadı": "SOYAD", "GSM": "GSM",
+    "Baba Adı": "BABAADI", "Baba TC'si": "BABATC",
+    "Anne Adı": "ANNEADI", "Anne TC'si": "ANNETC",
+    "Doğum Tarihi": "DOGUMTARIHI", "Ölüm Tarihi": "OLUMTARIHI",
+    "Doğum Yeri": "DOGUMYERI", "Memleket İli": "MEMLEKETIL",
+    "Memleket İlçesi": "MEMLEKETILCE", "Memleket Köyü": "MEMLEKETKOY",
+    "Adres İli": "ADRESIL", "Adres İlçesi": "ADRESILCE",
+    "Aile Sıra No": "AILESIRANO", "Birey Sıra No": "BIREYSIRANO",
+    "Medeni Hal": "MEDENIHAL", "Cinsiyet": "CINSIYET"
 }
 
-def validate_tc(tc):
-    """TC Kimlik numarasının geçerliliğini kontrol eder."""
-    return tc.isdigit() and len(tc) == 11
+executor = ThreadPoolExecutor(max_workers=4)
 
-def build_query(conditions):
-    """Verilen koşullara göre SQL sorgusunu oluşturur (parametreleştirilmiş)."""
-    query_parts = []
-    params = []
-    for field, value in conditions.items():
-        if value:  # Sadece değeri olan alanlar için koşul ekle
-            if field == "DOGUMTARIHI":
-                query_parts.append(f"{field} LIKE %s") # Parametre placeholder
-                params.append(f"%{value}%") # LIKE için % işaretlerini parametre değerine ekle
-            else:
-                query_parts.append(f"{field} = %s") # Parametre placeholder
-                params.append(value)
-    query_condition = " AND ".join(query_parts) if query_parts else "1=1"
-    return query_condition, tuple(params) # Sorgu koşulu ve parametreleri tuple olarak döndür
+def initialize_db_pool():
+    global DB_CONFIG, DB_POOL
+    try:
+        config = configparser.ConfigParser()
+        config.read('config.ini')
+        DB_CONFIG = config['FULLDATA']
+        DB_POOL = mysql.connector.pooling.MySQLConnectionPool(
+            pool_name="mypool",
+            pool_size=8,
+            pool_reset_session=True,
+            **DB_CONFIG
+        )
+        logging.info("Database pool initialized successfully")
+    except Exception as e:
+        logging.critical(f"Database pool initialization failed: {e}")
+        raise RuntimeError("Database connection failed") from e
 
 @contextmanager
 def db_connection():
-    """Veritabanı bağlantısını yönetir (context manager)."""
     conn = None
     try:
-        db_config = config['FULLDATA'] # config.ini dosyasından FULLDATA bölümünü al
-        conn = mysql.connector.connect(**db_config)
-        logging.info("Veritabanına başarıyla bağlanıldı.")
+        conn = DB_POOL.get_connection()
         yield conn
     except mysql.connector.Error as e:
-        error_message = f"Veritabanı bağlantı hatası: {e}" # Daha detaylı hata mesajı
-        logging.error(error_message, exc_info=True) # exc_info=True ile traceback loga eklenir
-        messagebox.showerror("Hata", error_message) # Kullanıcıya da detaylı hata mesajı göster
-        yield None  # Hata durumunda None döndür
+        logging.error(f"Database error: {e}")
+        messagebox.showerror("Database Error", f"{e.msg}")
+        raise
     finally:
         if conn and conn.is_connected():
             conn.close()
-            logging.info("Veritabanı bağlantısı kapatıldı.")
 
+def validate_tc(tc: str) -> bool:
+    return tc.isdigit() and len(tc) == 11
 
-def execute_query(cursor, query, params=None):
-    """Verilen sorguyu parametrelerle birlikte çalıştırır ve sonuçları döndürür."""
-    try:
-        logging.debug(f"Çalıştırılacak sorgu: {query}, Parametreler: {params}") # Parametreleri de logla
-        start_time = time.time()
-        if params:
-            cursor.execute(query, params) # Parametrelerle sorguyu çalıştır
+def build_query(conditions: Dict[str, str]) -> Tuple[str, Tuple]:
+    clauses = []
+    params = []
+    for field, value in conditions.items():
+        if not value:
+            continue
+
+        if field == "DOGUMTARIHI":
+            if value.isdigit() and len(value) == 4:
+                clauses.append("LEFT(DOGUMTARIHI, 4) = %s")
+            else:
+                clauses.append("DOGUMTARIHI LIKE %s")
+                value = f"%{value}%"
         else:
-            cursor.execute(query)
-        query_duration = round(time.time() - start_time, 3) # Sorgu süresini hesapla
-        logging.debug(f"Sorgu başarıyla çalıştırıldı (Süre: {query_duration}s). Etkilenen satır sayısı: {cursor.rowcount}")
-        # Veritabanı performansı için indeksleme önerisi (özellikle WHERE koşulunda kullanılan alanlar için)
-        logging.debug("Veritabanı performansını artırmak için sorguda kullanılan alanlar üzerinde indeks oluşturmayı düşünebilirsiniz.")
-        # Sorgu optimizasyonu için EXPLAIN kullanımı önerisi
-        logging.debug("Sorgu performansını analiz etmek için 'EXPLAIN sorgu' komutunu kullanabilirsiniz.")
-        results = cursor.fetchall()
-        return results
+            clauses.append(f"{field} = %s")
+
+        params.append(value)
+
+    return " AND ".join(clauses) or "1=1", tuple(params)
+
+def execute_query(cursor, query: str, params: Tuple) -> Optional[mysql.connector.cursor.MySQLCursor]:
+    try:
+        start_time = time.monotonic()
+        cursor.execute(query, params)
+        logging.info(f"Query executed in {time.monotonic() - start_time:.3f}s")
+        return cursor
     except mysql.connector.Error as e:
-        error_message = f"Sorgu çalıştırma hatası: {e}" # Daha detaylı hata mesajı
-        logging.error(error_message, exc_info=True) # exc_info=True ile traceback loga eklenir
-        messagebox.showerror("Hata", error_message) # Kullanıcıya da detaylı hata mesajı göster
-        return []
+        logging.error(f"Query failed: {e}")
+        messagebox.showerror("Query Error", f"Execution failed: {e.msg}")
+        return None
 
+def save_to_csv(filename: str, cursor, query_condition: str) -> Tuple[int, float]:
+    start_time = time.monotonic()
+    record_count = 0
 
-def search(entries):
-    """Arama işlemini gerçekleştirir."""
-    with db_connection() as db:
-        if not db:
-            return
+    try:
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        with open(filename, 'w', encoding='utf-8', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(DB_FIELDS.keys())
 
-        cursor = db.cursor()
-        if not cursor:
-            logging.error("Cursor oluşturulamadı.")
-            return
+            while True:
+                rows = cursor.fetchmany(5000)
+                if not rows:
+                    break
 
-        # Sadece değeri olan alanları conditions sözlüğüne ekle
-        query_conditions_dict = {DB_FIELDS[k]: v.get() for k, v in entries.items() if v.get()} # Daha açıklayıcı değişken adı
-        logging.debug(f"Arama koşulları: {query_conditions_dict}")
+                writer.writerows(rows)
+                record_count += len(rows)
+                logging.info(f"Written {record_count} records...")
 
-        if "TC" in query_conditions_dict and not validate_tc(query_conditions_dict["TC"]):
-            messagebox.showwarning("Uyarı", "Geçersiz TC Kimlik Numarası")
-            logging.warning("Geçersiz TC Kimlik Numarası girildi.")
-            return
+        duration = time.monotonic() - start_time
 
-        query_condition, params = build_query(query_conditions_dict) # Sorgu koşulunu ve parametreleri al
-        query = f"SELECT {', '.join(DB_FIELDS.values())} FROM `109m` WHERE {query_condition}"
-        logging.info(f"Oluşturulan sorgu: {query}, Parametreler: {params}") # Loga parametreleri de ekle
+        with open(filename, 'a', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerows([
+                [],
+                ["Query Conditions", query_condition],
+                ["Total Time (s)", f"{duration:.2f}"],
+                ["Total Records", record_count]
+            ])
 
-        start_time = time.time()
-        results = execute_query(cursor, query, params) # Parametreleri execute_query'e ilet
-        end_time = time.time()
-        duration = round(end_time - start_time, 2)
+        return record_count, duration
 
-        if not results:
-            messagebox.showinfo("Bilgi", "Aramayla eşleşen kayıt bulunamadı.")
-            logging.info("Aramayla eşleşen kayıt bulunamadı.")
-            return
+    except Exception as e:
+        logging.error(f"CSV save failed: {e}")
+        raise
 
-        filename = f"./index/searcher_{time.strftime('%Y%m%d-%H%M%S')}.csv"
+def search(entries: Dict[str, tk.Entry]):
+    def run_search():
         try:
-            with open(filename, 'w', encoding='utf-8', newline='') as f:
-                csv_writer = csv.writer(f) # Daha açıklayıcı değişken adı
-                csv_writer.writerow(DB_FIELDS.keys())
-                csv_writer.writerows(results)
+            conditions = {DB_FIELDS[k]: v.get().strip() for k, v in entries.items() if v.get().strip()}
 
-                meta = [
-                    [],
-                    ["Sorgu Koşulları", build_query(query_conditions_dict)[0]], # Sadece sorgu koşulunu meta veriye yaz
-                    ["Toplam Süre (s)", duration],
-                    ["Toplam Kayıt", len(results)]
-                ]
-                csv_writer.writerows(meta)
+            if "TC" in conditions and not validate_tc(conditions["TC"]):
+                messagebox.showwarning("Invalid Input", "Geçersiz TC Kimlik Numarası")
+                return
 
-            logging.info(f"Arama sonuçları '{filename}' dosyasına kaydedildi. Toplam kayıt: {len(results)}, Süre: {duration}s")
-            messagebox.showinfo("Bilgi", f"'{filename}' oluşturuldu.\nToplam Kayıt: {len(results)}\nSüre: {duration}s")
+            query_condition, params = build_query(conditions)
+            query = f"SELECT {', '.join(DB_FIELDS.values())} FROM `109m` WHERE {query_condition}"
+            logging.debug(f"Executing query: {query}")
 
-        except OSError as e:
-            file_error_message = f"Dosya yazma hatası: {e}" # Daha detaylı hata mesajı
-            logging.error(file_error_message, exc_info=True) # exc_info=True ile traceback loga eklenir
-            messagebox.showerror("Hata", file_error_message) # Kullanıcıya da detaylı hata mesajı göster
+            with db_connection() as conn:
+                cursor = conn.cursor()
+                if not execute_query(cursor, query, params):
+                    return
+
+                filename = os.path.join("./index", f"search_{time.strftime('%Y%m%d-%H%M%S')}.csv")
+                record_count, duration = save_to_csv(filename, cursor, query_condition)
+
+                messagebox.showinfo(
+                    "Search Complete",
+                    f"{record_count} kayıt bulundu\n"
+                    f"Süre: {duration:.2f}s\n"
+                    f"Dosya: {os.path.basename(filename)}"
+                )
+
+        except Exception as e:
+            logging.error(f"Search failed: {e}")
+            messagebox.showerror("Error", f"Arama başarısız: {str(e)}")
         finally:
-            if cursor:
+            if 'cursor' in locals():
                 cursor.close()
-                logging.debug("Cursor kapatıldı.") # Cursor kapatıldığını logla
+            status_var.set("Ready")
 
+    status_var.set("Arama yapılıyor...")
+    executor.submit(run_search)
 
 def create_gui():
-    """Grafiksel kullanıcı arayüzünü oluşturur."""
     root = tk.Tk()
     root.title("Searcher")
+    root.geometry("680x600")
+
+    main_frame = tk.Frame(root, padx=15, pady=15)
+    main_frame.pack(expand=True, fill=tk.BOTH)
+
     entries = {}
+    for idx, field in enumerate(DB_FIELDS):
+        row = idx // 2
+        col = idx % 2
 
-    for field in DB_FIELDS:
-        frame = tk.Frame(root)
-        tk.Label(frame, width=15, text=f"{field}:", anchor='w').pack(side=tk.LEFT)
-        entry = tk.Entry(frame)
-        entry.pack(side=tk.RIGHT, expand=True, fill=tk.X)
+        frame = tk.Frame(main_frame)
+        frame.grid(row=row, column=col, sticky='ew', padx=5, pady=3)
+
+        lbl = tk.Label(frame, text=f"{field}:", width=14, anchor='w')
+        lbl.pack(side=tk.LEFT)
+
+        entry = tk.Entry(frame, width=18)
+        entry.pack(side=tk.RIGHT)
         entries[field] = entry
-        frame.pack(fill=tk.X, padx=3, pady=3)
 
-    search_button = tk.Button(root, text="Arama Yap", command=lambda: search(entries))
-    search_button.pack(pady=20)
-    # Birim testleri yazma önerisi (kod kalitesini artırmak için)
-    logging.info("Kodun kalitesini ve güvenilirliğini artırmak için birim testleri yazmanız önerilir (unittest veya pytest kullanarak).")
+        main_frame.columnconfigure(col, weight=1)
+
+    global status_var
+    status_var = tk.StringVar()
+    status_label = tk.Label(
+        root,
+        textvariable=status_var,
+        bd=1,
+        relief=tk.SUNKEN,
+        anchor=tk.W,
+        bg='#f0f0f0',
+        font=('Helvetica', 9)
+    )
+    status_label.pack(side=tk.BOTTOM, fill=tk.X)
+    status_var.set("Hazır")
+
+    search_btn = tk.Button(
+        main_frame,
+        text="ARA",
+        command=lambda: search(entries),
+        bg='#4CAF50',
+        fg='white',
+        activebackground='#45a049',
+        height=2,
+        width=20,
+        font=('Helvetica', 10, 'bold')
+    )
+    search_btn.grid(row=len(DB_FIELDS)//2+1, column=0, columnspan=2, pady=15)
 
     root.mainloop()
 
-
 if __name__ == "__main__":
-    create_gui()
+    try:
+        initialize_db_pool()
+        create_gui()
+    except Exception as e:
+        logging.critical(f"Uygulama başlatılamadı: {e}")
+        messagebox.showerror("Kritik Hata", f"Uygulama başlatılamadı:\n{str(e)}")
