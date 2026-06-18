@@ -1,0 +1,381 @@
+import contextlib
+import csv
+import logging
+import os
+import time
+from contextlib import contextmanager
+from datetime import datetime
+from typing import Any
+
+from .database import DatabaseProvider
+from .models import DB_FIELDS_LIST, FAMILY_CSV_HEADER, Person
+from .utils import clean_address, clean_value, is_valid_tc
+
+WHERE_PARENTS = "ANNETC = %s OR BABATC = %s"
+
+
+def _build_query_condition(field: str, value: str) -> str:
+    if field == "DOGUMTARIHI" and len(value) == 4 and value.isdigit():
+        return "LEFT(DOGUMTARIHI, 4) = %s"
+    if "%" in value:
+        return f"{field} LIKE %s"
+    return f"{field} = %s"
+
+
+def _build_parent_criteria(person: Person) -> tuple[str, list]:
+    clauses, params = [], []
+    if is_valid_tc(person.ANNETC):
+        clauses.append("ANNETC = %s")
+        params.append(person.ANNETC)
+    if is_valid_tc(person.BABATC):
+        clauses.append("BABATC = %s")
+        params.append(person.BABATC)
+    if not clauses:
+        return "", []
+    criteria = f"({' OR '.join(clauses)}) AND TC != %s"
+    params.append(person.TC)
+    return criteria, params
+
+
+class BaseService:
+    """Ortak veritabanı işlemlerini içeren temel servis sınıfı."""
+
+    @contextmanager
+    def _get_connection(self, section: str):
+        conn = DatabaseProvider.get_connection(section)
+        if not conn:
+            yield None
+            return
+        try:
+            yield conn
+        finally:
+            with contextlib.suppress(Exception):
+                conn.close()
+
+    def execute_query(self, section: str, query: str, params: tuple = ()) -> list[dict]:
+        with self._get_connection(section) as conn:
+            if not conn:
+                return []
+            try:
+                with conn.cursor(dictionary=True) as cursor:
+                    cursor.execute(query, params)
+                    return cursor.fetchall()
+            except Exception as e:
+                level = logging.ERROR if section == "FULLDATA" else logging.WARNING
+                logging.log(level, f"[{section}] Sorgu hatası: {e}\nSorgu: {query}")
+                return []
+
+    def execute_query_with_conn(self, conn, query: str, params: tuple = ()) -> list[dict]:
+        if not conn:
+            return []
+        try:
+            with conn.cursor(dictionary=True) as cursor:
+                cursor.execute(query, params)
+                return cursor.fetchall()
+        except Exception as e:
+            logging.warning(f"Sorgu hatası: {e}\nSorgu: {query}")
+            return []
+
+    def save_to_csv(self, filename: str, header: list[str], rows: list[list[Any]], metadata: dict | None = None):
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        with open(filename, "w", encoding="utf-8", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(header)
+            writer.writerows(rows)
+            if metadata:
+                writer.writerow([])
+                for k, v in metadata.items():
+                    writer.writerow([f"--- {k} ---", v])
+        return filename
+
+
+class SearchService(BaseService):
+    def _build_conditions(self, conditions: dict[str, str]) -> tuple[list[str], list[str]]:
+        clauses, params = [], []
+        for field, value in conditions.items():
+            if not value:
+                continue
+            logging.debug(f"  [Kriter] {field}: {value}")
+            clauses.append(_build_query_condition(field, value))
+            params.append(value)
+        return clauses, params
+
+    def _clean_results(self, results: list[dict]) -> list[list[str]]:
+        rows = []
+        for r in results:
+            rows.append([clean_value(r.get(field, "")) for field in DB_FIELDS_LIST])
+        return rows
+
+    def search(self, conditions: dict[str, str]) -> tuple[str, int, float]:
+        logging.info("--- Gelişmiş Arama Başlatıldı ---")
+        clauses, params = self._build_conditions(conditions)
+
+        where = " AND ".join(clauses) if clauses else "1=1"
+        query = f"SELECT {', '.join(DB_FIELDS_LIST)} FROM `109m` WHERE {where}"
+
+        logging.info("Sorgu veritabanına gönderiliyor...")
+        start = time.monotonic()
+        results = self.execute_query("FULLDATA", query, tuple(params))
+        duration = time.monotonic() - start
+
+        logging.info(f"Sorgu tamamlandı. {len(results)} kayıt bulundu. (Süre: {duration:.2f}s)")
+
+        rows = self._clean_results(results)
+
+        filename = f"./index/search_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        logging.info(f"Sonuçlar CSV dosyasına yazılıyor: {filename}")
+        self.save_to_csv(filename, DB_FIELDS_LIST, rows, {"Toplam Kayıt": len(rows)})
+
+        logging.info("--- Arama İşlemi Bitti ---")
+        return filename, len(rows), duration
+
+
+class FamilyService(BaseService):
+    def __init__(self):
+        self._person_cache: dict[str, Person] = {}
+
+    def get_full_person(self, tc: str) -> Person | None:
+        if not is_valid_tc(tc):
+            return None
+
+        if tc in self._person_cache:
+            return self._person_cache[tc]
+
+        with self._get_connection("FULLDATA") as conn:
+            if not conn:
+                return None
+            res = self.execute_query_with_conn(conn, "SELECT * FROM `109m` WHERE TC = %s", (tc,))
+            if not res:
+                return None
+
+            p = Person.from_dict(res[0])
+
+        addr_res = self.execute_query("ADRESSDATA", "SELECT GUNCELADRES FROM adresv2 WHERE TC = %s", (tc,))
+        p.GUNCELADRES = clean_address(addr_res[0]["GUNCELADRES"]) if addr_res else ""
+        p.GSM_LIST = self._fetch_gsm_numbers(tc)
+
+        self._person_cache[tc] = p
+        return p
+
+    def _fetch_gsm_numbers(self, tc: str) -> list[str]:
+        try:
+            res = self.execute_query("GSMDATA", "SELECT GSM FROM `140gsm` WHERE TC = %s", (tc,))
+            return [str(row["GSM"]) for row in res if row["GSM"]]
+        except Exception as e:
+            logging.debug(f"GSM çekme hatası ({tc}): {e}")
+            return []
+
+    def get_relatives(self, criteria: str, params: tuple) -> list[Person]:
+        res = self.execute_query("FULLDATA", f"SELECT * FROM `109m` WHERE {criteria}", params)
+
+        uncached_tcs = [str(r["TC"]) for r in res if str(r["TC"]) not in self._person_cache]
+        addr_map: dict[str, str] = {}
+        gsm_map: dict[str, list[str]] = {}
+
+        if uncached_tcs:
+            placeholders = ",".join(["%s"] * len(uncached_tcs))
+            addr_res = self.execute_query(
+                "ADRESSDATA", f"SELECT TC, GUNCELADRES FROM adresv2 WHERE TC IN ({placeholders})", tuple(uncached_tcs)
+            )
+            addr_map = {str(r["TC"]): r["GUNCELADRES"] for r in addr_res}
+
+            gsm_res = self.execute_query(
+                "GSMDATA", f"SELECT TC, GSM FROM `140gsm` WHERE TC IN ({placeholders})", tuple(uncached_tcs)
+            )
+            for r in gsm_res:
+                tc = str(r["TC"])
+                if r["GSM"]:
+                    gsm_map.setdefault(tc, []).append(str(r["GSM"]))
+
+        relatives = []
+        for r in res:
+            tc = str(r["TC"])
+            if tc in self._person_cache:
+                relatives.append(self._person_cache[tc])
+                continue
+            p = Person.from_dict(r)
+            p.GUNCELADRES = clean_address(addr_map.get(tc, "")) if tc in addr_map else ""
+            p.GSM_LIST = gsm_map.get(tc, [])
+            self._person_cache[tc] = p
+            relatives.append(p)
+        return relatives
+
+    def _log_gsm_info(self, person: Person):
+        if person.GSM:
+            logging.info(f"    [109M Verisi] GSM: {person.GSM}")
+        if person.GSM_LIST:
+            extra_gsms = [g for g in person.GSM_LIST if g != person.GSM]
+            if extra_gsms:
+                logging.info(f"    [GSMDATA Ek Veri] Numaralar: {', '.join(extra_gsms)}")
+
+    def _fetch_ancestors(self, main_p: Person, results: list) -> list:
+        parents = []
+        for tc, label in [(main_p.ANNETC, "Anne"), (main_p.BABATC, "Baba")]:
+            if not is_valid_tc(tc):
+                continue
+            logging.info(f"[{label}] sorgulanıyor: {tc}")
+            p = self.get_full_person(tc)
+            if not p:
+                continue
+            results.append((label, p))
+            parents.append((p.TC, label))
+            logging.info(f"--- {label} bulundu: {p.AD} {p.SOYAD}")
+            self._fetch_grandparents(p, label, results)
+        return parents
+
+    def _fetch_grandparents(self, parent: Person, label: str, results: list):
+        for r_tc, r_label in [(parent.ANNETC, f"Anneanne({label})"), (parent.BABATC, f"Dede({label})")]:
+            if not is_valid_tc(r_tc):
+                continue
+            logging.info(f"  [{r_label}] sorgulanıyor: {r_tc}")
+            rp = self.get_full_person(r_tc)
+            if rp:
+                results.append((r_label, rp))
+                logging.info(f"  --- {r_label} bulundu: {rp.AD} {rp.SOYAD}")
+
+    def generate_tree(self, main_tc: str) -> str:
+        self._person_cache.clear()
+        main_p = self.get_full_person(main_tc)
+        if not main_p:
+            return "Kayıt bulunamadı."
+
+        logging.info(f"!!! Soy ağacı oluşturuluyor: {main_p.AD} {main_p.SOYAD} ({main_tc})")
+        self._log_gsm_info(main_p)
+
+        results = [("Ana Kayıt", main_p)]
+
+        logging.info(">>> Üst soylar çekiliyor...")
+        parents = self._fetch_ancestors(main_p, results)
+
+        logging.info(">>> Kardeşler ve yeğenler çekiliyor...")
+        self._add_siblings(results, main_p)
+
+        logging.info(">>> Çocuklar çekiliyor...")
+        self._add_children(results, main_p)
+
+        logging.info(">>> Geniş aile çekiliyor...")
+        for p_tc, p_label in parents:
+            logging.info(f"[{p_label}] tarafı geniş aile aranıyor...")
+            self._add_extended(results, p_tc, p_label)
+
+        filename = f"./index/{main_p.AD}_{main_p.SOYAD}.csv"
+        logging.info(f"Dosya kaydediliyor: {filename}")
+        rows = [r[1].to_csv_row(r[0]) for r in results]
+        self.save_to_csv(filename, FAMILY_CSV_HEADER, rows)
+        logging.info(f"!!! İşlem Tamamlandı. Toplam {len(results)} kayıt yazıldı.")
+        return f"Kaydedildi: {filename}"
+
+    def _get_children_by_parents(self, parent_tcs: list) -> dict[str, list[Person]]:
+        if not parent_tcs:
+            return {}
+        placeholders = ",".join(["%s"] * len(parent_tcs))
+        res = self.execute_query(
+            "FULLDATA",
+            f"SELECT * FROM `109m` WHERE ANNETC IN ({placeholders}) OR BABATC IN ({placeholders})",
+            tuple(parent_tcs) * 2,
+        )
+        uncached_tcs = [str(r["TC"]) for r in res if str(r["TC"]) not in self._person_cache]
+        addr_map, gsm_map = self._batch_fetch_details(uncached_tcs)
+
+        grouped: dict[str, list[Person]] = {}
+        parent_set = set(parent_tcs)
+        for r in res:
+            p = self._resolve_person(r, addr_map, gsm_map)
+            parent_tc = p.ANNETC if p.ANNETC in parent_set else p.BABATC
+            grouped.setdefault(parent_tc, []).append(p)
+        return grouped
+
+    def _batch_fetch_details(self, tcs: list) -> tuple[dict[str, str], dict[str, list[str]]]:
+        addr_map: dict[str, str] = {}
+        gsm_map: dict[str, list[str]] = {}
+        if not tcs:
+            return addr_map, gsm_map
+        ph = ",".join(["%s"] * len(tcs))
+        addr_res = self.execute_query(
+            "ADRESSDATA", f"SELECT TC, GUNCELADRES FROM adresv2 WHERE TC IN ({ph})", tuple(tcs)
+        )
+        addr_map = {str(r["TC"]): r["GUNCELADRES"] for r in addr_res}
+        gsm_res = self.execute_query("GSMDATA", f"SELECT TC, GSM FROM `140gsm` WHERE TC IN ({ph})", tuple(tcs))
+        for r in gsm_res:
+            tc = str(r["TC"])
+            if r["GSM"]:
+                gsm_map.setdefault(tc, []).append(str(r["GSM"]))
+        return addr_map, gsm_map
+
+    def _resolve_person(self, row: dict, addr_map: dict, gsm_map: dict) -> Person:
+        tc = str(row["TC"])
+        if tc in self._person_cache:
+            return self._person_cache[tc]
+        p = Person.from_dict(row)
+        p.GUNCELADRES = clean_address(addr_map.get(tc, "")) if tc in addr_map else ""
+        p.GSM_LIST = gsm_map.get(tc, [])
+        self._person_cache[tc] = p
+        return p
+
+    def _add_siblings(self, results: list, person: Person):
+        criteria, params = _build_parent_criteria(person)
+        if not criteria:
+            return
+
+        siblings = self.get_relatives(criteria, tuple(params))
+        if not siblings:
+            return
+
+        logging.info(f"Kardeşler listeleniyor ({len(siblings)} kişi bulundu):")
+        children_map = self._get_children_by_parents([s.TC for s in siblings])
+
+        for s in siblings:
+            results.append((self._sibling_label(s, person), s))
+            logging.info(f"  - {results[-1][0]}: {s.AD} {s.SOYAD} ({s.TC})")
+            s_children = children_map.get(s.TC, [])
+            if s_children:
+                logging.info(f"    * {s.AD} kişisinin {len(s_children)} çocuğu (yeğen) bulundu.")
+                for c in s_children:
+                    results.append(("Yeğen", c))
+
+    def _sibling_label(self, sibling: Person, person: Person) -> str:
+        gender = "Erkek" if sibling.CINSIYET == "Erkek" else "Kız"
+        label = f"{gender} Kardeş"
+        is_step = sibling.ANNETC != person.ANNETC or sibling.BABATC != person.BABATC
+        return f"{label} (Üvey)" if is_step else label
+
+    def _add_children(self, results: list, person: Person):
+        if not is_valid_tc(person.TC):
+            return
+        children = self.get_relatives(WHERE_PARENTS, (person.TC, person.TC))
+        if children:
+            logging.info(f"Çocuklar listeleniyor ({len(children)} kişi bulundu):")
+            for c in children:
+                label = "Oğlu" if c.CINSIYET == "Erkek" else "Kızı"
+                logging.info(f"  - {label}: {c.AD} {c.SOYAD}")
+                results.append((label, c))
+
+    def _get_extended_label(self, p_label: str, gender: str) -> str:
+        if p_label == "Baba":
+            return "Amca" if gender == "Erkek" else "Hala"
+        return "Dayı" if gender == "Erkek" else "Teyze"
+
+    def _add_extended(self, results: list, p_tc: str, p_label: str):
+        parent = self.get_full_person(p_tc)
+        if not parent:
+            return
+
+        criteria, params = _build_parent_criteria(parent)
+        if not criteria:
+            return
+
+        relatives = self.get_relatives(criteria, tuple(params))
+        if not relatives:
+            return
+
+        logging.info(f"  {p_label} tarafı kardeşleri ({len(relatives)} kişi bulundu):")
+        children_map = self._get_children_by_parents([r.TC for r in relatives])
+
+        for r in relatives:
+            results.append((self._get_extended_label(p_label, r.CINSIYET), r))
+            logging.info(f"    - {results[-1][0]}: {r.AD} {r.SOYAD} ({r.TC})")
+            r_children = children_map.get(r.TC, [])
+            if r_children:
+                logging.info(f"      + {r.AD} kişisinin {len(r_children)} çocuğu (kuzen) bulundu.")
+                for c in r_children:
+                    results.append(("Kuzen", c))

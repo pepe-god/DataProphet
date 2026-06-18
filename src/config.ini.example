@@ -1,0 +1,23 @@
+[DATABASE]
+host = localhost
+user = your_user
+password = your_password  # pragma: allowlist secret
+database = 101m
+
+[GSMDATA]
+host = localhost
+user = your_user
+password = your_password  # pragma: allowlist secret
+database = 140gsm
+
+[ADRESSDATA]
+host = localhost
+user = your_user
+password = your_password  # pragma: allowlist secret
+database = adresv2
+
+[FULLDATA]
+host = localhost
+user = your_user
+password = your_password  # pragma: allowlist secret
+database = 109m

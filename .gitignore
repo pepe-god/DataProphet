@@ -1,0 +1,24 @@
+# Python çalışma dosyaları
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+*.egg-info/
+
+# Gizli veriler ve şifreler
+config.ini
+src/config.ini
+.secrets.baseline
+
+# Çıktı dosyaları (Soy ağaçları ve aramalar)
+index/
+*.csv
+
+# IDE ayarları
+.vscode/
+.idea/
+.ruff_cache/
+*.pytest_cache/
