@@ -1,10 +1,23 @@
 import configparser
 import logging
+import os
 from typing import ClassVar
 
 import mysql.connector.pooling
 
-from .config import load_config
+SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(SRC_DIR, "config.ini")
+
+
+def _load_config():
+    config = configparser.ConfigParser()
+    if not os.path.exists(CONFIG_PATH):
+        logging.error(
+            f"Yapılandırma dosyası bulunamadı: {CONFIG_PATH} — bazı özellikler çalışmayacak"
+        )
+        return config
+    config.read(CONFIG_PATH)
+    return config
 
 
 class DatabaseProvider:
@@ -16,7 +29,7 @@ class DatabaseProvider:
     @classmethod
     def _get_config(cls):
         if cls._config is None:
-            cls._config = load_config()
+            cls._config = _load_config()
         return cls._config
 
     @classmethod

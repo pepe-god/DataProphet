@@ -2,8 +2,9 @@ import tkinter as tk
 from concurrent.futures import ThreadPoolExecutor
 from tkinter import messagebox, ttk
 
+from .family import FamilyService
 from .models import SEARCH_FIELDS_MAP
-from .services import FamilyService, SearchService
+from .search import SearchService
 from .utils import is_valid_tc
 
 STATUS_READY = "Hazır"
