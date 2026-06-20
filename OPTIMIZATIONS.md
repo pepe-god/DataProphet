@@ -2,7 +2,7 @@
 
 ## Remaining Issues
 
-**6 findings. 0 critical. 0 high. 3 medium. 3 low.**
+**4 findings. 0 critical. 0 high. 2 medium. 2 low.**
 
 ### F28: `_add_children_of` Reintroduces N+1 for CSV Grouping
 
@@ -26,14 +26,14 @@
 - **Impact:** Different validation behavior across codebases
 - **Evidence:** `old101.py:36-37` vs `utils.py:7-9`. old101 accepts all-zeros TC; modern path rejects it.
 - **Recommended fix:** Replace `validate_tc` in old101.py with `from src.utils import is_valid_tc`.
-- **Status:** ❌ Open
+- **Status:** ✅ Fixed (commit `60fed15`)
 
 ### F31: `search_database` Uses `SELECT *` in old101
 
 - **Severity:** Low
 - **Impact:** Over-fetching columns not needed for CSV output
 - **Recommended fix:** Replace `SELECT *` with explicit column list matching `CSV_HEADER_SEARCH`.
-- **Status:** ❌ Open (legacy code)
+- **Status:** ✅ Fixed (commit `60fed15`)
 
 ### F32: `_write_children_and_grandchildren` N+1 in old101
 
@@ -51,8 +51,8 @@
 
 | # | Fix | Time | Impact |
 |---|-----|------|--------|
-| 1 | **F30:** Replace `validate_tc` with `is_valid_tc` in old101 | 10 min | Medium — consistency |
-| 2 | **F31:** Replace `SELECT *` with explicit columns in old101 search | 30 min | Low — less data transfer |
+| — | ~~F30: Replace `validate_tc` with `is_valid_tc` in old101~~ | — | ✅ Done |
+| — | ~~F31: Replace `SELECT *` with explicit columns in old101 search~~ | — | ✅ Done |
 
 ## Validation Plan
 
@@ -63,5 +63,5 @@
 
 ## Architecture Notes
 
-- **`old101.py` is standalone legacy** — no imports from other `src.` modules.
+- **`old101.py` is standalone legacy** — minimal imports from `src.` modules (only `src.utils`).
 - **`services.py` is the modern path** — modular, batch-optimized, cached.
