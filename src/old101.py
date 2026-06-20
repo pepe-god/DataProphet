@@ -10,6 +10,8 @@ from tkinter import messagebox, ttk
 import mysql.connector
 from mysql.connector import Error
 
+from .utils import is_valid_tc
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -59,10 +61,6 @@ def read_config():
     if "DATABASE" not in config or "GSMDATA" not in config:
         return None, None
     return config["DATABASE"], config["GSMDATA"]
-
-
-def validate_tc(tc_no):
-    return tc_no and len(tc_no) == 11 and tc_no.isdigit()
 
 
 def connect_to_database(db_config):
@@ -285,7 +283,7 @@ def process_family_tree(cursor, gsm_cursor, tc_no, writer, prefix=""):
 
 
 def process_tc_number(tc_no):
-    if not validate_tc(tc_no):
+    if not is_valid_tc(tc_no):
         messagebox.showwarning(MSG_WARNING, "Geçersiz TC kimlik numarası.")
         return
 
@@ -357,7 +355,7 @@ def search_database(entries):
             ]
         }
 
-        if query_conditions["TC"] and not validate_tc(query_conditions["TC"]):
+        if query_conditions["TC"] and not is_valid_tc(query_conditions["TC"]):
             messagebox.showwarning(MSG_WARNING, "Geçersiz TC kimlik numarası.")
             return
 
@@ -382,7 +380,8 @@ def search_database(entries):
             return
 
         where_clause, where_params = build_query(query_conditions)
-        query = "SELECT * FROM `101m` WHERE " + where_clause
+        search_columns = "TC, ADI, SOYADI, DOGUMTARIHI, NUFUSIL, NUFUSILCE, ANNEADI, ANNETC, BABAADI, BABATC, UYRUK"
+        query = f"SELECT {search_columns} FROM `101m` WHERE " + where_clause
         limit, offset, total_records = 5000, 0, 0
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         os.makedirs("./index", exist_ok=True)
@@ -411,7 +410,7 @@ def search_database(entries):
                     break
 
                 for row in results:
-                    writer.writerow(list(row[1:]))  # type: ignore[reportArgumentType]
+                    writer.writerow(list(row))  # type: ignore[reportArgumentType]
                     total_records += 1
 
                 offset += limit
