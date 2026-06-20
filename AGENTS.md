@@ -3,8 +3,8 @@
 ## Commands
 
 ```bash
-uv run main              # Launch GUI app (Tkinter)
-uv run old101            # Launch legacy monolithic GUI
+uv run start             # Launch GUI app (Tkinter)
+uv run oldstart          # Launch legacy monolithic GUI
 uv run pytest tests/ -v  # Run all 47 tests
 uv run ruff check src/   # Lint source code
 uv run ruff check tests/ # Lint tests
@@ -47,7 +47,7 @@ Hooks: merge-conflict check, trailing-whitespace, end-of-file-fixer, check-yaml,
 - **`config.ini` is gitignored and not in the repo.** Tests that hit `load_config()` without mocking will fail if `config.ini` is missing. The first two tests in `test_config.py` (`test_loads_existing_config`, `test_config_has_database_sections`) require a real `config.ini`.
 - **Mock patch paths must use `src.` prefix**, e.g. `@patch("src.database.load_config")`. Tests import from `src.*` directly.
 - **`old101.py` uses SQL string interpolation** (`f"{field}='{value}'"`). Do not "fix" it to parameterized queries without also changing `execute_query`'s signature — it currently appends LIMIT/OFFSET via string concat.
-- **`BaseService.execute_query` closes the connection after every call.** This is intentional for the current design but means `FamilyService.get_full_person` opens 3 connections per person (109m + adresv2 + 140gsm). See `OPTIMIZATIONS.md` for the fix plan.
+- **`_fetch_ancestors` now batch-fetches all ancestor data** (parents + grandparents) in 3 total connections instead of 18. `get_full_person` still opens 3 connections for a single person call, but ancestor traversal uses batch queries.
 - **Git identity:** `god` / `god@example.com`. Use this for commits.
 
 ## Testing

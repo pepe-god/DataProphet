@@ -2,7 +2,7 @@
 
 ## Remaining Issues
 
-**4 findings. 0 critical. 0 high. 2 medium. 2 low.**
+**2 findings. 0 critical. 0 high. 0 medium. 2 low.**
 
 ### F28: `_add_children_of` Reintroduces N+1 for CSV Grouping
 
@@ -10,7 +10,7 @@
 - **Impact:** More DB round-trips per tree generation
 - **Evidence:** `services.py:330-336` — For each sibling/relative, `get_relatives(WHERE_PARENTS, ...)` fetches children individually.
 - **Recommended fix:** Batch-fetch all children in one query, group by parent TC, then interleave into results.
-- **Status:** ❌ Open (regression from grouping refactor)
+- **Status:** ✅ Fixed — `_add_children` now batch-fetches grandchildren via `_get_children_by_parents`
 
 ### F29: `get_full_person` Opens 3 Connections Per Person
 
@@ -18,7 +18,7 @@
 - **Impact:** 18 connection checkouts for 6 ancestor calls
 - **Evidence:** `services.py:138-159` — Each `get_full_person` call opens 3 separate pool connections.
 - **Recommended fix:** Pre-fetch all ancestor TCs, then batch-fetch address/GSM data in bulk.
-- **Status:** ❌ Open (low priority)
+- **Status:** ✅ Fixed — `_fetch_ancestors` now batch-fetches all ancestor data (parents + grandparents) in 3 total connections
 
 ### F30: `validate_tc` vs `is_valid_tc` Inconsistency
 

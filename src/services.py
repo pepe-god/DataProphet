@@ -209,29 +209,67 @@ class FamilyService(BaseService):
                 logging.info(f"    [GSMDATA Ek Veri] Numaralar: {', '.join(extra_gsms)}")
 
     def _fetch_ancestors(self, main_p: Person, results: list) -> list:
+        parent_tcs = [(main_p.ANNETC, "Anne"), (main_p.BABATC, "Baba")]
+        parent_tcs = [(tc, label) for tc, label in parent_tcs if is_valid_tc(tc)]
+        if not parent_tcs:
+            return []
+
+        all_tcs = [tc for tc, _ in parent_tcs]
+
+        # Discover grandparent TCs via one batch query
+        ph = ",".join(["%s"] * len(all_tcs))
+        parent_data = self.execute_query(
+            "FULLDATA",
+            f"SELECT TC, ANNETC, BABATC FROM `109m` WHERE TC IN ({ph})",
+            tuple(all_tcs),
+        )
+        parent_map: dict[str, dict] = {r["TC"]: r for r in parent_data}
+        for r in parent_data:
+            for gt_tc in [r["ANNETC"], r["BABATC"]]:
+                if is_valid_tc(gt_tc):
+                    all_tcs.append(gt_tc)
+
+        if not all_tcs:
+            return []
+
+        # Batch-fetch all ancestor FULLDATA (1 query instead of 6×get_full_person)
+        ph2 = ",".join(["%s"] * len(all_tcs))
+        res = self.execute_query(
+            "FULLDATA",
+            f"SELECT * FROM `109m` WHERE TC IN ({ph2})",
+            tuple(all_tcs),
+        )
+
+        # Batch-fetch address/GSM for all uncached ancestors (2 queries instead of 6×2)
+        uncached = [str(r["TC"]) for r in res if str(r["TC"]) not in self._person_cache]
+        addr_map, gsm_map = self._batch_fetch_details(uncached)
+
+        person_map: dict[str, Person] = {}
+        for r in res:
+            p = self._resolve_person(r, addr_map, gsm_map)
+            person_map[p.TC] = p
+
         parents = []
-        for tc, label in [(main_p.ANNETC, "Anne"), (main_p.BABATC, "Baba")]:
-            if not is_valid_tc(tc):
+        for tc, label in parent_tcs:
+            if tc not in person_map:
                 continue
-            logging.info(f"[{label}] sorgulanıyor: {tc}")
-            p = self.get_full_person(tc)
-            if not p:
-                continue
+            p = person_map[tc]
             results.append((label, p))
             parents.append((p.TC, label))
             logging.info(f"--- {label} bulundu: {p.AD} {p.SOYAD}")
-            self._fetch_grandparents(p, label, results)
-        return parents
 
-    def _fetch_grandparents(self, parent: Person, label: str, results: list):
-        for r_tc, r_label in [(parent.ANNETC, f"Anneanne({label})"), (parent.BABATC, f"Dede({label})")]:
-            if not is_valid_tc(r_tc):
+            if tc not in parent_map:
                 continue
-            logging.info(f"  [{r_label}] sorgulanıyor: {r_tc}")
-            rp = self.get_full_person(r_tc)
-            if rp:
-                results.append((r_label, rp))
-                logging.info(f"  --- {r_label} bulundu: {rp.AD} {rp.SOYAD}")
+            for gt_tc, gt_label in [
+                (parent_map[tc]["ANNETC"], f"Anneanne({label})"),
+                (parent_map[tc]["BABATC"], f"Dede({label})"),
+            ]:
+                if is_valid_tc(gt_tc) and gt_tc in person_map:
+                    gp = person_map[gt_tc]
+                    results.append((gt_label, gp))
+                    logging.info(f"  --- {gt_label} bulundu: {gp.AD} {gp.SOYAD}")
+
+        return parents
 
     def generate_tree(self, main_tc: str) -> str:
         self._person_cache.clear()
@@ -343,12 +381,22 @@ class FamilyService(BaseService):
         if not is_valid_tc(person.TC):
             return
         children = self.get_relatives(WHERE_PARENTS, (person.TC, person.TC))
-        if children:
-            logging.info(f"Çocuklar listeleniyor ({len(children)} kişi bulundu):")
-            for c in children:
-                label = "Oğlu" if c.CINSIYET == "Erkek" else "Kızı"
-                logging.info(f"  - {label}: {c.AD} {c.SOYAD}")
-                results.append((label, c))
+        if not children:
+            return
+
+        child_tcs = [c.TC for c in children]
+        grandchildren_map = self._get_children_by_parents(child_tcs) if child_tcs else {}
+
+        logging.info(f"Çocuklar listeleniyor ({len(children)} kişi bulundu):")
+        for c in children:
+            label = "Oğlu" if c.CINSIYET == "Erkek" else "Kızı"
+            logging.info(f"  - {label}: {c.AD} {c.SOYAD}")
+            results.append((label, c))
+            c_children = grandchildren_map.get(c.TC, [])
+            if c_children:
+                logging.info(f"    * {c.AD} {c.SOYAD}'in {len(c_children)} çocuğu bulundu.")
+                for gc in c_children:
+                    results.append((f"{c.AD} {c.SOYAD}'in Çocuğu", gc))
 
     def _get_extended_label(self, p_label: str, gender: str) -> str:
         if p_label == "Baba":
