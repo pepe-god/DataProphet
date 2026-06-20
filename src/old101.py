@@ -12,7 +12,9 @@ from mysql.connector import Error
 
 from .utils import is_valid_tc
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 MSG_WARNING = "Uyarı"
@@ -122,7 +124,11 @@ def build_query_display(conditions):
 
 
 def write_person_info(writer, person, category, gsm_data=None):
-    writer.writerow([category] + [str(value) for value in person[1:]] + ([gsm_data] if gsm_data else []))
+    writer.writerow(
+        [category]
+        + [str(value) for value in person[1:]]
+        + ([gsm_data] if gsm_data else [])
+    )
 
 
 def get_family_member_by_tc(cursor, tc_no):
@@ -176,14 +182,46 @@ def _write_person_if_exists(cursor, gsm_cursor, tc, label, writer, prefix):
 def _write_ancestors(cursor, gsm_cursor, person, writer, prefix):
     anne_tc = person[8]  # type: ignore[reportArgumentType]
     baba_tc = person[10]  # type: ignore[reportArgumentType]
-    anne_result = _write_person_if_exists(cursor, gsm_cursor, anne_tc, "Anne", writer, prefix)
+    anne_result = _write_person_if_exists(
+        cursor, gsm_cursor, anne_tc, "Anne", writer, prefix
+    )
     if anne_result:
-        _write_person_if_exists(cursor, gsm_cursor, anne_result[8], "Büyükanne (Anne'nin Anne)", writer, prefix)
-        _write_person_if_exists(cursor, gsm_cursor, anne_result[10], "Büyükbaba (Anne'nin Baba)", writer, prefix)
-    baba_result = _write_person_if_exists(cursor, gsm_cursor, baba_tc, "Baba", writer, prefix)
+        _write_person_if_exists(
+            cursor,
+            gsm_cursor,
+            anne_result[8],
+            "Büyükanne (Anne'nin Anne)",
+            writer,
+            prefix,
+        )
+        _write_person_if_exists(
+            cursor,
+            gsm_cursor,
+            anne_result[10],
+            "Büyükbaba (Anne'nin Baba)",
+            writer,
+            prefix,
+        )
+    baba_result = _write_person_if_exists(
+        cursor, gsm_cursor, baba_tc, "Baba", writer, prefix
+    )
     if baba_result:
-        _write_person_if_exists(cursor, gsm_cursor, baba_result[8], "Büyükanne (Baba'nın Anne)", writer, prefix)
-        _write_person_if_exists(cursor, gsm_cursor, baba_result[10], "Büyükbaba (Baba'nın Baba)", writer, prefix)
+        _write_person_if_exists(
+            cursor,
+            gsm_cursor,
+            baba_result[8],
+            "Büyükanne (Baba'nın Anne)",
+            writer,
+            prefix,
+        )
+        _write_person_if_exists(
+            cursor,
+            gsm_cursor,
+            baba_result[10],
+            "Büyükbaba (Baba'nın Baba)",
+            writer,
+            prefix,
+        )
     return anne_tc, baba_tc, anne_result, baba_result
 
 
@@ -197,11 +235,18 @@ def _write_children_and_grandchildren(cursor, gsm_cursor, person, writer, prefix
         grandchildren = get_children_by_parent_tc(cursor, child[1])
         for grandchild in grandchildren:
             gsm_data = get_gsm_data_by_tc(gsm_cursor, grandchild[1])
-            write_person_info(writer, grandchild, prefix + f"{child[2]} {child[3]}'in Çocuğu", gsm_data)
+            write_person_info(
+                writer,
+                grandchild,
+                prefix + f"{child[2]} {child[3]}'in Çocuğu",
+                gsm_data,
+            )
     return len(children)
 
 
-def _write_siblings_and_nieces(cursor, gsm_cursor, anne_tc, baba_tc, tc_no, writer, prefix):
+def _write_siblings_and_nieces(
+    cursor, gsm_cursor, anne_tc, baba_tc, tc_no, writer, prefix
+):
     siblings = get_siblings_by_parent_tc(cursor, anne_tc, baba_tc, tc_no)
     niece_count = 0
     if not siblings:
@@ -217,14 +262,23 @@ def _write_siblings_and_nieces(cursor, gsm_cursor, anne_tc, baba_tc, tc_no, writ
             grandnieces = get_children_by_parent_tc(cursor, niece[1])
             for grandniece in grandnieces:
                 gsm_data = get_gsm_data_by_tc(gsm_cursor, grandniece[1])
-                write_person_info(writer, grandniece, prefix + f"{niece[2]} {niece[3]}'in Çocuğu", gsm_data)
+                write_person_info(
+                    writer,
+                    grandniece,
+                    prefix + f"{niece[2]} {niece[3]}'in Çocuğu",
+                    gsm_data,
+                )
     return len(siblings), niece_count
 
 
-def _write_extended_family(cursor, gsm_cursor, parent_result, label, tc_list, writer, prefix):
+def _write_extended_family(
+    cursor, gsm_cursor, parent_result, label, tc_list, writer, prefix
+):
     if not parent_result:
         return []
-    siblings = get_siblings_by_parent_tc(cursor, parent_result[8], parent_result[10], parent_result[1])  # type: ignore[reportArgumentType]
+    siblings = get_siblings_by_parent_tc(
+        cursor, parent_result[8], parent_result[10], parent_result[1]
+    )  # type: ignore[reportArgumentType]
     if not siblings:
         return []
     tc_list.extend([s[1] for s in siblings])
@@ -246,7 +300,9 @@ def _write_cousins(cursor, gsm_cursor, tc_list, writer, prefix):
         cousin_child_count += len(cousin_children)
         for child in cousin_children:
             gsm_data = get_gsm_data_by_tc(gsm_cursor, child[1])
-            write_person_info(writer, child, prefix + f"{cousin[2]} {cousin[3]}'in Çocuğu", gsm_data)
+            write_person_info(
+                writer, child, prefix + f"{cousin[2]} {cousin[3]}'in Çocuğu", gsm_data
+            )
     return len(cousins), cousin_child_count
 
 
@@ -258,9 +314,15 @@ def process_family_tree(cursor, gsm_cursor, tc_no, writer, prefix=""):
     gsm_data = get_gsm_data_by_tc(gsm_cursor, tc_no)
     write_person_info(writer, main_person, prefix + "Ana Kayıt", gsm_data)
 
-    anne_tc, baba_tc, anne_result, baba_result = _write_ancestors(cursor, gsm_cursor, main_person, writer, prefix)
-    child_count = _write_children_and_grandchildren(cursor, gsm_cursor, main_person, writer, prefix)
-    sibling_count, niece_count = _write_siblings_and_nieces(cursor, gsm_cursor, anne_tc, baba_tc, tc_no, writer, prefix)
+    anne_tc, baba_tc, anne_result, baba_result = _write_ancestors(
+        cursor, gsm_cursor, main_person, writer, prefix
+    )
+    child_count = _write_children_and_grandchildren(
+        cursor, gsm_cursor, main_person, writer, prefix
+    )
+    sibling_count, niece_count = _write_siblings_and_nieces(
+        cursor, gsm_cursor, anne_tc, baba_tc, tc_no, writer, prefix
+    )
 
     extended_tc_list = []
     dayi_teyze_result = _write_extended_family(
@@ -269,7 +331,9 @@ def process_family_tree(cursor, gsm_cursor, tc_no, writer, prefix=""):
     amca_hala_result = _write_extended_family(
         cursor, gsm_cursor, baba_result, "Amca/Hala", extended_tc_list, writer, prefix
     )
-    cousin_count, cousin_child_count = _write_cousins(cursor, gsm_cursor, extended_tc_list, writer, prefix)
+    cousin_count, cousin_child_count = _write_cousins(
+        cursor, gsm_cursor, extended_tc_list, writer, prefix
+    )
 
     return {
         "Kuzen Sayısı": cousin_count,
@@ -323,7 +387,9 @@ def process_tc_number(tc_no):
 
             messagebox.showinfo("Başarılı", f"Veriler {filename} dosyasına kaydedildi.")
         else:
-            messagebox.showinfo("Bulunamadı", "Girilen TC Kimlik Numarası ile eşleşen kayıt bulunamadı.")
+            messagebox.showinfo(
+                "Bulunamadı", "Girilen TC Kimlik Numarası ile eşleşen kayıt bulunamadı."
+            )
     finally:
         cnx.close()
         gsm_cnx.close()
@@ -373,7 +439,11 @@ def search_database(entries):
             "Uyruk": "UYRUK",
         }
 
-        query_conditions = {db_fields[field]: value for field, value in query_conditions.items() if value}
+        query_conditions = {
+            db_fields[field]: value
+            for field, value in query_conditions.items()
+            if value
+        }
 
         if not query_conditions:
             messagebox.showwarning(MSG_WARNING, "Lütfen en az bir arama kriteri girin.")
@@ -396,7 +466,9 @@ def search_database(entries):
             writer.writerow(CSV_HEADER_SEARCH)
 
             while True:
-                success, start_time, end_time, query_time = execute_query(cursor, query, where_params, limit, offset)
+                success, start_time, end_time, query_time = execute_query(
+                    cursor, query, where_params, limit, offset
+                )
                 if not success:
                     break
 
@@ -421,7 +493,10 @@ def search_database(entries):
                 [
                     "İlk Sorgu Zamanı",
                     time.strftime(
-                        "%Y-%m-%d %H:%M:%S", time.localtime(first_query_time if first_query_time else time.time())
+                        "%Y-%m-%d %H:%M:%S",
+                        time.localtime(
+                            first_query_time if first_query_time else time.time()
+                        ),
                     ),
                 ]
             )
@@ -429,7 +504,10 @@ def search_database(entries):
                 [
                     "Son Sorgu Zamanı",
                     time.strftime(
-                        "%Y-%m-%d %H:%M:%S", time.localtime(last_query_time if last_query_time else time.time())
+                        "%Y-%m-%d %H:%M:%S",
+                        time.localtime(
+                            last_query_time if last_query_time else time.time()
+                        ),
                     ),
                 ]
             )
@@ -437,7 +515,8 @@ def search_database(entries):
             writer.writerow(["Toplam Kayıt Sayısı", total_records])
 
         messagebox.showinfo(
-            "Bilgi", f"Sonuçlar başarıyla {filename} dosyasına yazıldı. Toplam kayıt sayısı: {total_records}"
+            "Bilgi",
+            f"Sonuçlar başarıyla {filename} dosyasına yazıldı. Toplam kayıt sayısı: {total_records}",
         )
     finally:
         db.close()
@@ -495,7 +574,9 @@ def main():
 
     for field in fields:
         row = tk.Frame(scroll_frame)
-        tk.Label(row, width=18, text=field + ": ", anchor="w", font=("Arial", 9)).pack(side=tk.LEFT, pady=2)
+        tk.Label(row, width=18, text=field + ": ", anchor="w", font=("Arial", 9)).pack(
+            side=tk.LEFT, pady=2
+        )
         ent = tk.Entry(row, font=("Arial", 9))
         ent.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X, pady=2)
         row.pack(side=tk.TOP, fill=tk.X)

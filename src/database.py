@@ -1,3 +1,4 @@
+import configparser
 import logging
 from typing import ClassVar
 
@@ -10,7 +11,7 @@ class DatabaseProvider:
     """Veritabanı bağlantı havuzlarını yöneten ortak sağlayıcı."""
 
     _pools: ClassVar[dict] = {}
-    _config: ClassVar[dict | None] = None
+    _config: ClassVar[configparser.ConfigParser | None] = None
 
     @classmethod
     def _get_config(cls):
@@ -19,7 +20,9 @@ class DatabaseProvider:
         return cls._config
 
     @classmethod
-    def get_pool(cls, section: str) -> mysql.connector.pooling.MySQLConnectionPool | None:
+    def get_pool(
+        cls, section: str
+    ) -> mysql.connector.pooling.MySQLConnectionPool | None:
         if section not in cls._pools:
             config = cls._get_config()
             if section not in config:
@@ -28,7 +31,10 @@ class DatabaseProvider:
             db_params = dict(config[section])
             try:
                 cls._pools[section] = mysql.connector.pooling.MySQLConnectionPool(
-                    pool_name=f"{section}_pool", pool_size=10, pool_reset_session=True, **db_params
+                    pool_name=f"{section}_pool",
+                    pool_size=10,
+                    pool_reset_session=True,
+                    **db_params,
                 )
                 logging.info(f"'{section}' için bağlantı havuzu oluşturuldu.")
             except Exception:
