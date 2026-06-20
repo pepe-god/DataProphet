@@ -9,7 +9,9 @@ CONFIG_PATH = os.path.join(SRC_DIR, "config.ini")
 def load_config():
     config = configparser.ConfigParser()
     if not os.path.exists(CONFIG_PATH):
-        logging.error(f"Yapılandırma dosyası bulunamadı: {CONFIG_PATH} — bazı özellikler çalışmayacak")
+        logging.error(
+            f"Yapılandırma dosyası bulunamadı: {CONFIG_PATH} — bazı özellikler çalışmayacak"
+        )
         return config
     config.read(CONFIG_PATH)
     return config

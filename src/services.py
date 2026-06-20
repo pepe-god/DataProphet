@@ -65,7 +65,9 @@ class BaseService:
                 logging.log(level, f"[{section}] Sorgu hatası: {e}\nSorgu: {query}")
                 return []
 
-    def execute_query_with_conn(self, conn, query: str, params: tuple = ()) -> list[dict]:
+    def execute_query_with_conn(
+        self, conn, query: str, params: tuple = ()
+    ) -> list[dict]:
         if not conn:
             return []
         try:
@@ -76,7 +78,13 @@ class BaseService:
             logging.warning(f"Sorgu hatası: {e}\nSorgu: {query}")
             return []
 
-    def save_to_csv(self, filename: str, header: list[str], rows: list[list[Any]], metadata: dict | None = None):
+    def save_to_csv(
+        self,
+        filename: str,
+        header: list[str],
+        rows: list[list[Any]],
+        metadata: dict | None = None,
+    ):
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         with open(filename, "w", encoding="utf-8", newline="") as f:
             writer = csv.writer(f)
@@ -90,7 +98,9 @@ class BaseService:
 
 
 class SearchService(BaseService):
-    def _build_conditions(self, conditions: dict[str, str]) -> tuple[list[str], list[str]]:
+    def _build_conditions(
+        self, conditions: dict[str, str]
+    ) -> tuple[list[str], list[str]]:
         clauses, params = [], []
         for field, value in conditions.items():
             if not value:
@@ -118,7 +128,9 @@ class SearchService(BaseService):
         results = self.execute_query("FULLDATA", query, tuple(params))
         duration = time.monotonic() - start
 
-        logging.info(f"Sorgu tamamlandı. {len(results)} kayıt bulundu. (Süre: {duration:.2f}s)")
+        logging.info(
+            f"Sorgu tamamlandı. {len(results)} kayıt bulundu. (Süre: {duration:.2f}s)"
+        )
 
         rows = self._clean_results(results)
 
@@ -144,13 +156,17 @@ class FamilyService(BaseService):
         with self._get_connection("FULLDATA") as conn:
             if not conn:
                 return None
-            res = self.execute_query_with_conn(conn, "SELECT * FROM `109m` WHERE TC = %s", (tc,))
+            res = self.execute_query_with_conn(
+                conn, "SELECT * FROM `109m` WHERE TC = %s", (tc,)
+            )
             if not res:
                 return None
 
             p = Person.from_dict(res[0])
 
-        addr_res = self.execute_query("ADRESSDATA", "SELECT GUNCELADRES FROM adresv2 WHERE TC = %s", (tc,))
+        addr_res = self.execute_query(
+            "ADRESSDATA", "SELECT GUNCELADRES FROM adresv2 WHERE TC = %s", (tc,)
+        )
         p.GUNCELADRES = clean_address(addr_res[0]["GUNCELADRES"]) if addr_res else ""
         p.GSM_LIST = self._fetch_gsm_numbers(tc)
 
@@ -159,28 +175,38 @@ class FamilyService(BaseService):
 
     def _fetch_gsm_numbers(self, tc: str) -> list[str]:
         try:
-            res = self.execute_query("GSMDATA", "SELECT GSM FROM `140gsm` WHERE TC = %s", (tc,))
+            res = self.execute_query(
+                "GSMDATA", "SELECT GSM FROM `140gsm` WHERE TC = %s", (tc,)
+            )
             return [str(row["GSM"]) for row in res if row["GSM"]]
         except Exception as e:
             logging.debug(f"GSM çekme hatası ({tc}): {e}")
             return []
 
     def get_relatives(self, criteria: str, params: tuple) -> list[Person]:
-        res = self.execute_query("FULLDATA", f"SELECT * FROM `109m` WHERE {criteria}", params)
+        res = self.execute_query(
+            "FULLDATA", f"SELECT * FROM `109m` WHERE {criteria}", params
+        )
 
-        uncached_tcs = [str(r["TC"]) for r in res if str(r["TC"]) not in self._person_cache]
+        uncached_tcs = [
+            str(r["TC"]) for r in res if str(r["TC"]) not in self._person_cache
+        ]
         addr_map: dict[str, str] = {}
         gsm_map: dict[str, list[str]] = {}
 
         if uncached_tcs:
             placeholders = ",".join(["%s"] * len(uncached_tcs))
             addr_res = self.execute_query(
-                "ADRESSDATA", f"SELECT TC, GUNCELADRES FROM adresv2 WHERE TC IN ({placeholders})", tuple(uncached_tcs)
+                "ADRESSDATA",
+                f"SELECT TC, GUNCELADRES FROM adresv2 WHERE TC IN ({placeholders})",
+                tuple(uncached_tcs),
             )
             addr_map = {str(r["TC"]): r["GUNCELADRES"] for r in addr_res}
 
             gsm_res = self.execute_query(
-                "GSMDATA", f"SELECT TC, GSM FROM `140gsm` WHERE TC IN ({placeholders})", tuple(uncached_tcs)
+                "GSMDATA",
+                f"SELECT TC, GSM FROM `140gsm` WHERE TC IN ({placeholders})",
+                tuple(uncached_tcs),
             )
             for r in gsm_res:
                 tc = str(r["TC"])
@@ -194,7 +220,9 @@ class FamilyService(BaseService):
                 relatives.append(self._person_cache[tc])
                 continue
             p = Person.from_dict(r)
-            p.GUNCELADRES = clean_address(addr_map.get(tc, "")) if tc in addr_map else ""
+            p.GUNCELADRES = (
+                clean_address(addr_map.get(tc, "")) if tc in addr_map else ""
+            )
             p.GSM_LIST = gsm_map.get(tc, [])
             self._person_cache[tc] = p
             relatives.append(p)
@@ -206,7 +234,9 @@ class FamilyService(BaseService):
         if person.GSM_LIST:
             extra_gsms = [g for g in person.GSM_LIST if g != person.GSM]
             if extra_gsms:
-                logging.info(f"    [GSMDATA Ek Veri] Numaralar: {', '.join(extra_gsms)}")
+                logging.info(
+                    f"    [GSMDATA Ek Veri] Numaralar: {', '.join(extra_gsms)}"
+                )
 
     def _fetch_ancestors(self, main_p: Person, results: list) -> list:
         parent_tcs = [(main_p.ANNETC, "Anne"), (main_p.BABATC, "Baba")]
@@ -277,7 +307,9 @@ class FamilyService(BaseService):
         if not main_p:
             return "Kayıt bulunamadı."
 
-        logging.info(f"!!! Soy ağacı oluşturuluyor: {main_p.AD} {main_p.SOYAD} ({main_tc})")
+        logging.info(
+            f"!!! Soy ağacı oluşturuluyor: {main_p.AD} {main_p.SOYAD} ({main_tc})"
+        )
         self._log_gsm_info(main_p)
 
         results = [("Ana Kayıt", main_p)]
@@ -312,7 +344,9 @@ class FamilyService(BaseService):
             f"SELECT * FROM `109m` WHERE ANNETC IN ({placeholders}) OR BABATC IN ({placeholders})",
             tuple(parent_tcs) * 2,
         )
-        uncached_tcs = [str(r["TC"]) for r in res if str(r["TC"]) not in self._person_cache]
+        uncached_tcs = [
+            str(r["TC"]) for r in res if str(r["TC"]) not in self._person_cache
+        ]
         addr_map, gsm_map = self._batch_fetch_details(uncached_tcs)
 
         grouped: dict[str, list[Person]] = {}
@@ -323,17 +357,23 @@ class FamilyService(BaseService):
             grouped.setdefault(parent_tc, []).append(p)
         return grouped
 
-    def _batch_fetch_details(self, tcs: list) -> tuple[dict[str, str], dict[str, list[str]]]:
+    def _batch_fetch_details(
+        self, tcs: list
+    ) -> tuple[dict[str, str], dict[str, list[str]]]:
         addr_map: dict[str, str] = {}
         gsm_map: dict[str, list[str]] = {}
         if not tcs:
             return addr_map, gsm_map
         ph = ",".join(["%s"] * len(tcs))
         addr_res = self.execute_query(
-            "ADRESSDATA", f"SELECT TC, GUNCELADRES FROM adresv2 WHERE TC IN ({ph})", tuple(tcs)
+            "ADRESSDATA",
+            f"SELECT TC, GUNCELADRES FROM adresv2 WHERE TC IN ({ph})",
+            tuple(tcs),
         )
         addr_map = {str(r["TC"]): r["GUNCELADRES"] for r in addr_res}
-        gsm_res = self.execute_query("GSMDATA", f"SELECT TC, GSM FROM `140gsm` WHERE TC IN ({ph})", tuple(tcs))
+        gsm_res = self.execute_query(
+            "GSMDATA", f"SELECT TC, GSM FROM `140gsm` WHERE TC IN ({ph})", tuple(tcs)
+        )
         for r in gsm_res:
             tc = str(r["TC"])
             if r["GSM"]:
@@ -367,7 +407,9 @@ class FamilyService(BaseService):
             logging.info(f"  - {results[-1][0]}: {s.AD} {s.SOYAD} ({s.TC})")
             s_children = children_map.get(s.TC, [])
             if s_children:
-                logging.info(f"    * {s.AD} kişisinin {len(s_children)} çocuğu (yeğen) bulundu.")
+                logging.info(
+                    f"    * {s.AD} kişisinin {len(s_children)} çocuğu (yeğen) bulundu."
+                )
                 for c in s_children:
                     results.append(("Yeğen", c))
 
@@ -385,7 +427,9 @@ class FamilyService(BaseService):
             return
 
         child_tcs = [c.TC for c in children]
-        grandchildren_map = self._get_children_by_parents(child_tcs) if child_tcs else {}
+        grandchildren_map = (
+            self._get_children_by_parents(child_tcs) if child_tcs else {}
+        )
 
         logging.info(f"Çocuklar listeleniyor ({len(children)} kişi bulundu):")
         for c in children:
@@ -394,7 +438,9 @@ class FamilyService(BaseService):
             results.append((label, c))
             c_children = grandchildren_map.get(c.TC, [])
             if c_children:
-                logging.info(f"    * {c.AD} {c.SOYAD}'in {len(c_children)} çocuğu bulundu.")
+                logging.info(
+                    f"    * {c.AD} {c.SOYAD}'in {len(c_children)} çocuğu bulundu."
+                )
                 for gc in c_children:
                     results.append((f"{c.AD} {c.SOYAD}'in Çocuğu", gc))
 
@@ -424,6 +470,8 @@ class FamilyService(BaseService):
             logging.info(f"    - {results[-1][0]}: {r.AD} {r.SOYAD} ({r.TC})")
             r_children = children_map.get(r.TC, [])
             if r_children:
-                logging.info(f"      + {r.AD} kişisinin {len(r_children)} çocuğu (kuzen) bulundu.")
+                logging.info(
+                    f"      + {r.AD} kişisinin {len(r_children)} çocuğu (kuzen) bulundu."
+                )
                 for c in r_children:
                     results.append(("Kuzen", c))

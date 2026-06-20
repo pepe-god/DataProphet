@@ -106,7 +106,9 @@ class Person:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Person:
         if not cls._FIELD_NAMES:
-            cls._FIELD_NAMES = frozenset(f.name for f in fields(cls) if f.name != "_FIELD_NAMES")
+            cls._FIELD_NAMES = frozenset(
+                f.name for f in fields(cls) if f.name != "_FIELD_NAMES"
+            )
         filtered_data = {k: v for k, v in data.items() if k in cls._FIELD_NAMES}
         return cls(**filtered_data)
 

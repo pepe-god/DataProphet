@@ -32,7 +32,11 @@ class DataProphetApp:
 
         style.configure("TNotebook", background=BG_COLOR, borderwidth=0)
         style.configure(
-            "TNotebook.Tab", background="#636e72", foreground="white", font=("Arial", 10, "bold"), padding=[15, 5]
+            "TNotebook.Tab",
+            background="#636e72",
+            foreground="white",
+            font=("Arial", 10, "bold"),
+            padding=[15, 5],
         )
         style.map("TNotebook.Tab", background=[("selected", ACCENT_BLUE)])
         style.configure("TFrame", background=BG_COLOR)
@@ -43,7 +47,13 @@ class DataProphetApp:
 
         header = tk.Frame(self.root, bg="#2d3436", height=60)
         header.pack(fill="x")
-        tk.Label(header, text="DATAPROPHET", font=("Arial", 18, "bold"), bg="#2d3436", fg="#00b894").pack(pady=10)
+        tk.Label(
+            header,
+            text="DATAPROPHET",
+            font=("Arial", 18, "bold"),
+            bg="#2d3436",
+            fg="#00b894",
+        ).pack(pady=10)
 
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(expand=True, fill="both", padx=15, pady=5)
@@ -83,7 +93,13 @@ class DataProphetApp:
             frame.grid(row=row, column=col, sticky="ew", padx=15, pady=8)
 
             tk.Label(
-                frame, text=f"{label}:", width=14, anchor="w", bg="#2d3436", fg="#dfe6e9", font=("Arial", 10)
+                frame,
+                text=f"{label}:",
+                width=14,
+                anchor="w",
+                bg="#2d3436",
+                fg="#dfe6e9",
+                font=("Arial", 10),
             ).pack(side="left")
             entry = ttk.Entry(frame, width=22)
             entry.pack(side="right", fill="x", expand=True)
@@ -106,15 +122,25 @@ class DataProphetApp:
         container = tk.Frame(self.family_frame, bg="#2d3436", pady=60)
         container.pack(fill="both", expand=True)
 
-        tk.Label(container, text="TC KİMLİK NUMARASI", font=("Arial", 12, "bold"), bg="#2d3436", fg="#dfe6e9").pack(
-            pady=10
-        )
+        tk.Label(
+            container,
+            text="TC KİMLİK NUMARASI",
+            font=("Arial", 12, "bold"),
+            bg="#2d3436",
+            fg="#dfe6e9",
+        ).pack(pady=10)
 
         entry_frame = tk.Frame(container, bg="#353b48", padx=2, pady=2)
         entry_frame.pack(pady=10)
 
         self.family_entry = tk.Entry(
-            entry_frame, font=("Arial", 18), justify="center", bg="#dfe6e9", fg="#2d3436", bd=0, width=18
+            entry_frame,
+            font=("Arial", 18),
+            justify="center",
+            bg="#dfe6e9",
+            fg="#2d3436",
+            bd=0,
+            width=18,
         )
         self.family_entry.pack(padx=2, pady=2)
         self.family_entry.bind("<Return>", lambda e: self._on_family_click())
@@ -134,7 +160,11 @@ class DataProphetApp:
         btn.pack(pady=40)
 
     def _on_search_click(self):
-        conds = {k: v.get().strip() for k, v in self.search_entries.items() if v.get().strip()}
+        conds = {
+            k: v.get().strip()
+            for k, v in self.search_entries.items()
+            if v.get().strip()
+        }
         if not conds:
             return
         self.status_var.set("Arama yapılıyor...")
@@ -151,10 +181,17 @@ class DataProphetApp:
     def _run_search(self, conds):
         try:
             _, c, d = self.search_service.search(conds)
-            self.root.after(0, lambda: messagebox.showinfo("Tamamlandı", f"{c} kayıt bulundu.\nSüre: {d:.2f}s"))
+            self.root.after(
+                0,
+                lambda: messagebox.showinfo(
+                    "Tamamlandı", f"{c} kayıt bulundu.\nSüre: {d:.2f}s"
+                ),
+            )
         except Exception as exc:
             msg = str(exc)
-            self.root.after(0, lambda m=msg: messagebox.showerror("Hata", f"Arama hatası: {m}"))
+            self.root.after(
+                0, lambda m=msg: messagebox.showerror("Hata", f"Arama hatası: {m}")
+            )
         finally:
             self.root.after(0, lambda: self.status_var.set(STATUS_READY))
 
@@ -164,7 +201,9 @@ class DataProphetApp:
             self.root.after(0, lambda: messagebox.showinfo("Sonuç", res))
         except Exception as exc:
             msg = str(exc)
-            self.root.after(0, lambda m=msg: messagebox.showerror("Hata", f"Soy ağacı hatası: {m}"))
+            self.root.after(
+                0, lambda m=msg: messagebox.showerror("Hata", f"Soy ağacı hatası: {m}")
+            )
         finally:
             self.root.after(0, lambda: self.status_var.set(STATUS_READY))
 
