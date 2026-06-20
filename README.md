@@ -23,7 +23,7 @@ A Python-based desktop application for advanced data searching and family record
 
 ## Configuration
 
-Create a `config.ini` file in the root directory with your database connection details:
+Create a `config.ini` file in the `src/` directory with your database connection details:
 
 ```ini
 [DATABASE]
@@ -42,8 +42,8 @@ database = gsm_db
 ## Usage
 
 ```bash
-uv run main          # Modern GUI (DataProphet v2.0)
-uv run old101        # Legacy GUI (101 Veri Yönetim Sistemi)
+uv run start           # Modern GUI (DataProphet v2.0)
+uv run oldstart        # Legacy GUI (101 Veri Yönetim Sistemi)
 ```
 
 ## Testing
@@ -66,6 +66,7 @@ src/
   config.py       # Config loader
   utils.py        # Validation, cleaning utilities
   old101.py       # Legacy standalone app
+  config.ini      # Database credentials (gitignored)
 tests/
   test_*.py       # 47 tests (pytest)
 ```

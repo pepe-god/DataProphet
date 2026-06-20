@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "dataprophet"
 version = "0.1.0"
@@ -9,8 +13,8 @@ dependencies = [
 ]
 
 [project.scripts]
-main = "src.main:main"
-old101 = "src.old101:main"
+start = "src.main:main"
+oldstart = "src.old101:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
